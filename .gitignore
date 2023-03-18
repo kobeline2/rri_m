@@ -1,0 +1,9 @@
+memo/
+
+*.ipynb
+*.asv
+*.geojson
+
+.ipynb_checkpoints/
+.DS_Store
+

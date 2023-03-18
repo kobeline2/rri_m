@@ -1,0 +1,14 @@
+Hatanagi_in 151 113
+Hatanagi 151 114
+Ikawa_in 196 131
+Ikawa 196 130
+Nagasima_in 214 104
+Nagashima 214 103
+WL_Point 225 96
+Kannza 327 83
+okuizumi 214 98
+ooigawa 244 86
+kunowaki 278 75
+kawaguti 321 85
+
+
