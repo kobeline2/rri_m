@@ -41,16 +41,16 @@ gammam    = str_split_cell2mat(lines{24}, 'gammam');
 beta      = str_split_cell2mat(lines{25}, 'beta');
 disp(' ')
 
-ksg(I)    = str_split_cell2mat(lines{26}, 'ksg');
-gammag(I) = str_split_cell2mat(lines{27}, 'gammag');
-kg0(I)    = str_split_cell2mat(lines{28}, 'kg0');
-fpg(I)    = str_split_cell2mat(lines{29}, 'fpg');
-rgl(I)    = str_split_cell2mat(lines{30}, 'rgl');
+ksg    = str_split_cell2mat(lines{26}, 'ksg');
+gammag = str_split_cell2mat(lines{27}, 'gammag');
+kg0    = str_split_cell2mat(lines{28}, 'kg0');
+fpg    = str_split_cell2mat(lines{29}, 'fpg');
+rgl    = str_split_cell2mat(lines{30}, 'rgl');
 disp(' ')
 
 
 
-rivfile_switch = str_split_cell2mat(lines{38});
+rivfile_switch = str_split_cell2mat(lines{38}, '');
 if rivfile_switch == 0
     rivThresh          = str_split_cell2mat(lines{31}, 'rivThresh');
     width_param_c      = str_split_cell2mat(lines{32}, 'width_param_c');
@@ -161,15 +161,15 @@ disp(' ')
 hydro_switch  = str_split_cell2mat(lines{80}, '');
 location_file = lines{81}{:};
 if hydro_switch == 1, disp(['location_file : ', location_file]), end
-
+%%
 for I = 1:num_of_landuse
     if (ksv(I) > 0) && (ka(I) > 0), error("Error: both ksv and ka are non-zero."), end
     if gammam(I) > gammaa(I), error("Error: gammam must be smaller than gammaa."), end
 end
 
-infilt_limit = zeros(1,num_of_landuse);
-da = zeros(1,num_of_landuse);
-dm = zeros(1,num_of_landuse);
+infilt_limit = zeros(1, num_of_landuse);
+da           = zeros(1, num_of_landuse);
+dm           = zeros(1, num_of_landuse);
 for I = 1:num_of_landuse
     if (soildepth(I) > 0) & (ksv(I) > 0), infilt_limit(I) = soildepth(I) * gammaa(I); end
     if (soildepth(I) > 0) & (ka(I) > 0), da(I) = soildepth(I) * gammaa(I); end
@@ -178,11 +178,11 @@ end
 
 toc
 
-
 %% functions
 function out = str_split_cell2mat(lines, s)
     out = split(lines, ' ');
     out = cellfun(@str2double, out);
+    out = reshape(out, [], length(out));
     if ~strcmp(s, '')
         disp([s, ' : ', num2str(out)])
     end
