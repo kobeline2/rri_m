@@ -48,17 +48,16 @@ disp(['ns_river : ' , num2str(ns_river)]);
 disp(['num_of_landuse : ' , num2str(num_of_landuse)]);
 
 
-for I = 1:num_of_landuse   % 土地利用の数だけなら事前割り当て不要？
-    dif(I) = str2double(cell2mat(lines{17}(I)));
-    ns_slope(I) = str2double(cell2mat(lines{18}(I)));
-    soildepth(I) = str2double(cell2mat(lines{19}(I)));
-    gammaa(I) = str2double(cell2mat(lines{20}(I)));
-    ksv(I) = str2double(cell2mat(lines{21}(I)));
-    faif(I) = str2double(cell2mat(lines{22}(I)));
-    ka(I) = str2double(cell2mat(lines{23}(I)));
-    gammam(I) = str2double(cell2mat(lines{24}(I)));
-    beta(I) = str2double(cell2mat(lines{25}(I)));
-end
+dif       = str_split_cell2mat(lines{17});
+ns_slope  = str_split_cell2mat(lines{18});
+soildepth = str_split_cell2mat(lines{19});
+gammaa    = str_split_cell2mat(lines{20});
+ksv       = str_split_cell2mat(lines{21});
+faif      = str_split_cell2mat(lines{22});
+ka        = str_split_cell2mat(lines{23});
+gammam    = str_split_cell2mat(lines{24});
+beta      = str_split_cell2mat(lines{25});
+
 
 disp(['dif : ', num2str(dif)])
 disp(['ns_slope : ', num2str(ns_slope)])
@@ -229,3 +228,11 @@ for I = 1:num_of_landuse
 end
 
 toc
+
+
+%% functions
+function out = str_split_cell2mat(line)
+    out = split(lines, ' ');
+    out = cellfun(@str2double, out);
+    out = out';
+end
