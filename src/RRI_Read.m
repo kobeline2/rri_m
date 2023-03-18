@@ -1,6 +1,4 @@
 %% RRI_Read.f90
-tic
-
 lines = readvars('RRI_Input.txt','Range','1:100'); % 修正したい
 lines = cellfun(@split, lines, 'UniformOutput', false);
 
@@ -161,7 +159,7 @@ disp(' ')
 hydro_switch  = str_split_cell2mat(lines{80}, '');
 location_file = lines{81}{:};
 if hydro_switch == 1, disp(['location_file : ', location_file]), end
-%%
+
 for I = 1:num_of_landuse
     if (ksv(I) > 0) && (ka(I) > 0), error("Error: both ksv and ka are non-zero."), end
     if gammam(I) > gammaa(I), error("Error: gammam must be smaller than gammaa."), end
@@ -175,8 +173,6 @@ for I = 1:num_of_landuse
     if (soildepth(I) > 0) & (ka(I) > 0), da(I) = soildepth(I) * gammaa(I); end
     if (soildepth(I) > 0) & (ksv(I) > 0) & (gammam(I) > 0), dm(I) = soildepth(I) * gammam(I), end
 end
-
-toc
 
 %% functions
 function out = str_split_cell2mat(lines, s)
