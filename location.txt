@@ -10,5 +10,6 @@ okuizumi 214 98
 ooigawa 244 86
 kunowaki 278 75
 kawaguti 321 85
+Kannza2 000 01
 
 
