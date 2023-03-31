@@ -2,20 +2,20 @@
 tic
 
 % 変数の準備
-hs = [1 2;1 2];
-hr = [2 4;5 4.6];
-height = [0 6;1 1];
-depth = [3 3;3 3];
-domain = [1 1;1 1];
-riv = [1 1;1 1];
-k = 0;
-nx = 2;
-ny = 2;
-qrs = zeros(2,2);
-
-dt = 1;
-len = 1;
-area = 10;
+% hs = [1 2;1 2];
+% hr = [2 4;5 4.6];
+% height = [0 6;1 1];
+% depth = [3 3;3 3];
+% domain = [1 1;1 1];
+% riv = [1 1;1 1];
+% k = 0;
+% nx = 2;
+% ny = 2;
+% qrs = zeros(2,2);
+% 
+% dt = 1;
+% len = 1;
+% area = 10;
 
 %% subroutine funcrs
 
@@ -23,8 +23,8 @@ Mu1 = (2/3) ^ (3/2);
 Mu2 = 0.35;
 Mu3 = 0.91;
 
-for I = 1:NY
-    for J = 1:NX
+for I = 1:NX
+    for J = 1:NY
         if domain(I,J) == 0 | riv(I,J) == 0;continue;end
         
         hs_top = hs(I,J);
@@ -34,11 +34,13 @@ for I = 1:NY
         % len = len_riv_idx(k)
         
         %%
-        if (height(I,J) == 0 & hr_top(I,J) < 0)|(height(I,J) > 0 & hr_top < 0 & hs_top <= height(I,J))
+        if (height(I,J) == 0 & hr_top < 0)|(height(I,J) > 0 & hr_top < 0 & hs_top <= height(I,J))
             % From slope to river (hrs > 0)
             disp('Case A')
             hrs = Mu1 * hs_top * sqrt(9.81 * hs_top) * dt * len * 2 /area;
-            if hrs > hs(I,J);hrs = hs(I,J);end
+            if hrs > hs(I,J)
+                hrs = hs(I,J);
+            end
             hs(I,J) = hs(I,J) - hrs;
         
             hr_new = hr_update(hr(I,J),hrs,k,area);
@@ -170,7 +172,7 @@ for I = 1:NY
         
         end
         
-        qrs(I,J) = qrs(I,J) / dt
+        qrs(I,J) = qrs(I,J) / dt;
     end
 end  
 
