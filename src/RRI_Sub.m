@@ -153,18 +153,18 @@ acc_slo_idx           = flowAcc(domAndSlo);       % 集水面積
 land_idx              = land(domAndSlo);          % 土地利用
 
 dif_slo_idx      = dif(land(domAndSlo))';         % 1:拡散波近似，2:kinematic
-ns_slo_idx       = ns_slope(land(domAndSlo))';    % ns_slope
-soildepth_idx    = soildepth(land(domAndSlo))';   % 
-gammaa_idx       = gammaa(land(domAndSlo))';      %
-ksv_idx          = ksv(land(domAndSlo))';         %
-faif_idx         = faif(land(domAndSlo))';        %
-infilt_limit_idx = infilt_limit(land(domAndSlo))';%
+ns_slo_idx       = ns_slope(land(domAndSlo))';    % 粗度係数
+soildepth_idx    = soildepth(land(domAndSlo))';   % 土層厚
+gammaa_idx       = gammaa(land(domAndSlo))';      % 間隙率
+ksv_idx          = ksv(land(domAndSlo))';         % 鉛直方向の透水係数
+faif_idx         = faif(land(domAndSlo))';        % 湿潤前線における吸引圧
+infilt_limit_idx = infilt_limit(land(domAndSlo))';% 浸透する水の上限　(= soildepth * gammaa)
 
-ka_idx           = ka(land(domAndSlo))';          %
-gammam_idx       = gammam(land(domAndSlo))';      %
-beta_idx         = beta(land(domAndSlo))';        %
-da_idx           = da(land(domAndSlo))';          %
-dm_idx           = dm(land(domAndSlo))';          %
+ka_idx           = ka(land(domAndSlo))';          % 水平方向の透水係数
+gammam_idx       = gammam(land(domAndSlo))';      % 不飽和間隙率
+beta_idx         = beta(land(domAndSlo))';        % パラメータ
+da_idx           = da(land(domAndSlo))';          % 間隙 (= soildepth * gammaa)
+dm_idx           = dm(land(domAndSlo))';          % 不飽和間隙 (= soildepth * gammam)
 % ksg_idx          = ksg(land(domAndSlo))';         %
 % gammag_idx       = gammag(land(domAndSlo))';      %
 % kg0_idx          = kg0(land(domAndSlo))';         %
@@ -204,14 +204,17 @@ end
 
 %%%-------------------------- array initialization ---------------------%%%
 
-hr_idx = zeros(riv_count, 1);
-vr_idx = zeros(riv_count, 1);
+hr_idx = zeros(riv_count, 1);        % rivセルの水深
+vr_idx = zeros(riv_count, 1);        % rivセルの流量
 
-hs_idx = zeros(slo_count, 1);
-qp_t_idx = zeros(slo_count, 1);
+hs_idx = zeros(slo_count, 1);        % sloセルの水深
+qp_t_idx = zeros(slo_count, 1);      % sloセルの降水量
 
-rain_i = zeros(NY, 1);
-rain_j = zeros(NX, 1);
+gampt_ff_idx = zeros(slo_count, 1);  % accumulated infiltration depth [m]
+gampt_f_idx = zeros(slo_count, 1);   % infiltration capacity [m/s]
+
+rain_i = zeros(NY, 1);               % 該当するrainのy座標（横方向）
+rain_j = zeros(NX, 1);               % 該当するrainのx座標（縦方向）
 
 
 %%%-------------------------- gw initial setting -----------------------%%%
@@ -490,7 +493,7 @@ for T = 1:maxt
 
 
 %%%-------------------------- INFILTRATION (Green Ampt)  ---------------%%%
-
+    hs_idx = infilt(hs_idx, gampt_f_idx, gampt_ff_idx, ksv_idx, faif_idx, gammaa_idx, infilt_limit_idx, dt, slo_count);
 
 
 %%%-------------------------- SET WATER DEPTH 0 AT DOMAIN = 2  ---------%%%
