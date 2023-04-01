@@ -46,7 +46,7 @@
 
 %% slope
 
-K = 100;
+K = 400;
 
 zb_p = zb_slo_idx(K);
 hs_p = hs_idx(K);
@@ -90,45 +90,44 @@ for L = 1:lmax % (1: right�C2: down, 3: right down, 4: left down)
     if dh >= 0
         % going out
         h = hs_p;
+        h = 0.01;
         if zb_p < zb_n; h = max(0, zb_p + hs_p - zb_n); end
-%         qs_idx(L,K) = hq(ns_p, ka_p, da_p, dm_p, b_p, h, dh, len, area);
-        [t,h]=ode45(@(t,h) odefun_s(t,h,dh,ns_river,width_idx(K),area,area_ratio_idx(K)),[time time+ddt],h);
+        [t,h]=ode45(@(t,h) odefun_s(t, h, dh, ns_p, ka_p, da_p, dm_p, b_p, len, area),[time time+ddt],h);
+        qs_idx(L,K) = h(end);
+        disp([qs_idx(L,K),L])
     else
     % coming in
-%         h = hs_n;
-%         dh = abs(dh);
-%         if zb_n < zb_p; h = max(0, zb_n + hs_n - zb_p); end
-%         qs_idx(L,K) =  - hq(ns_p, ka_p, da_p, dm_p, b_p, h, dh, len, area);
+        h = hs_n;
+        dh = abs(dh);
+        if zb_n < zb_p; h = max(0, zb_n + hs_n - zb_p); end
+        [t,h]=ode45(@(t,h) odefun_s(t, h, dh, ns_p, ka_p, da_p, dm_p, b_p, len, area),[time time+ddt],h);
+        qs_idx(L,K) = -h(end);
+        disp([qs_idx(L,K),L])
     end
 
 end
 
-function q = hq(ns_p, ka_p, da_p, dm_p, b_p, h, dh, len, area)
+function dhdt = odefun_s(t, h, dh, ns_p, ka_p, da_p, dm_p, b_p, len, area)
 
-if b_p > 0
-    km = ka_p / b_p;
-else
-    km = 0;
-end
-vm = km * dh;
+km = 0;
+if b_p > 0; km = ka_p / b_p; end  % マトリックス部の透水係数
+vm = km * dh;  % マトリックス部の流速
 
-if da_p > 0
-    va = ka_p * dh;
-else
-    va = 0;
-end
+va = 0;  % 大空隙部の流速（空隙あり）
+if da_p > 0; va = ka_p * dh; end  % 大空隙部の流速（空隙なし）
 
 if dh < 0; dh = 0; end
 al = sqrt(dh) / ns_p;
 m = 5 / 3;
 
 if h < dm_p 
-    q = vm * dm_p * (h / dm_p) ^ b_p;
+    dhdt = vm * dm_p * (h / dm_p) ^ b_p;  % h <= dm
 elseif h < da_p 
-    q = vm * dm_p + va * (h - dm_p);
+    dhdt = vm * dm_p + va * (h - dm_p);   % dm < h <= da
 else
-    q = vm * dm_p + va * (h - dm_p) + al * (h - da_p) ^ m;
+    dhdt = vm * dm_p + va * (h - dm_p) + al * (h - da_p) ^ m;  % da < h
 end
 
+dhdt = dhdt * len / area;  % discharge per unit area
 end
 
