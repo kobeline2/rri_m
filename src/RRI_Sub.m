@@ -396,7 +396,7 @@ for T = 1:maxt
             qp_t(I, J) = qp(rain_j(I), rain_i(J), itemp);
         end
     end
-    qo_t_idx = sub_slo_ij2idx(qp_t, qp_t_idx, slo_count, slo_idx2i, slo_idx2j);
+    qp_t_idx = sub_slo_ij2idx(qp_t, qp_t_idx, slo_count, slo_idx2i, slo_idx2j);
     
     %%%% boundary condition
     
@@ -450,26 +450,33 @@ for T = 1:maxt
             %  water coming in or going out?
             if dh >= 0
                 % going out
-                hw = hs_p;
-                % if emb > 0; hw = max(hs_p - emb, 0); end
-                if zb_p < zb_n; hw = max(0, zb_p + hs_p - zb_n); end
-                qs_idx(L,K) = hq(ns_p, ka_p, da_p, dm_p, b_p, hw, dh, len, area);
+            h = hs_p;
+            if zb_p < zb_n; h = max(0, zb_p + hs_p - zb_n); end
+            [t,h]=ode45(@(t,h) odefun_s(t, h, dh, ns_p, ka_p, da_p, dm_p, b_p, len, area),[time time+ddt],h);
+            qs_idx(L,K) = h(end);
             else
             % coming in
-                hw = hs_n;
-                % if emb > 0; hw = max(hs_n - emb, 0); end
-                dh = abs(dh);
-                if zb_n < zb_p; hw = max(0, zb_n + hs_n - zb_p); end
-                qs_idx(L,K) =  - hq(ns_p, ka_p, da_p, dm_p, b_p, hw, dh, len, area);
+            h = hs_n;
+            if zb_n < zb_p; h = max(0, zb_n + hs_n - zb_p); end
+            [t,h]=ode45(@(t,h) odefun_s(t, h, abs(dh), ns_p, ka_p, da_p, dm_p, b_p, len, area),[time time+ddt],h);
+            qs_idx(L,K) = -h(end);
             end
-
-            %%%% boundary condition
-
-
-
         end
     end
+    
+    %%%% boundary condition
+    
+    fs_idx = qp_t_idx - sum(qs_idx,1)';
 
+    for K = 1:slo_count
+        for L = 1:lmax
+            if dif_slo_idx(K) == 0 && L == 2; break; end % kinematic -> 1-direction
+            KK = down_slo_idx(L, K);
+            if dif_slo_idx(K) == 0; KK = down_slo_1d_idx(K); end
+            if KK == -1; continue; end
+            fs_idx(KK) = fs_idx(KK) + qs_idx(L, K);
+        end
+    end
     
     %%%%%%%%%%%%%%%%%% ------------- end Funcs
     
@@ -514,39 +521,26 @@ dhdt = A * R^(2/3) * w * h  / (A1 * A2);
 end
 
 
-function q = hq(ns_p, ka_p, da_p, dm_p, b_p, h, dh, len, area)
+function dhdt = odefun_s(t, h, dh, ns_p, ka_p, da_p, dm_p, b_p, len, area)
 
-if b_p > 0
-    km = ka_p / b_p;
-else
-    km = 0;
-end
-vm = km * dh;
+km = 0;
+if b_p > 0; km = ka_p / b_p; end  % マトリックス部の透水係数
+vm = km * dh;  % マトリックス部の流速
 
-if da_p > 0
-    va = ka_p * dh;
-else
-    va = 0;
-end
+va = 0;  % 大空隙部の流速（空隙あり）
+if da_p > 0; va = ka_p * dh; end  % 大空隙部の流速（空隙なし）
 
 if dh < 0; dh = 0; end
 al = sqrt(dh) / ns_p;
 m = 5 / 3;
 
 if h < dm_p 
-    q = vm * dm_p * (h / dm_p) ^ b_p;
+    dhdt = vm * dm_p * (h / dm_p) ^ b_p;  % h <= dm
 elseif h < da_p 
-    q = vm * dm_p + va * (h - dm_p);
+    dhdt = vm * dm_p + va * (h - dm_p);   % dm < h <= da
 else
-    q = vm * dm_p + va * (h - dm_p) + al * (h - da_p) ^ m;
+    dhdt = vm * dm_p + va * (h - dm_p) + al * (h - da_p) ^ m;  % da < h
 end
 
-% discharge per unit area
-% (q multiply by width and divide by area)
-q = q * len / area;
-
-% water depth limitter (1 mm)
-% note: it can be set to zero
-% if( h.le.0.001 ) q = 0.d0
-
-end 
+dhdt = dhdt * len / area;  % discharge per unit area
+end
