@@ -1,4 +1,10 @@
 function hs_idx = infilt(hs_idx, gampt_f_idx, gampt_ff_idx, ksv_idx, faif_idx, gammaa_idx, infilt_limit_idx, dt, slo_count)
+% infilt  calculating infiltretion by using Green Ampt Model
+% subroutine infilt
+% hs_idx = infilt(hs_idx, gampt_f_idx, gampt_ff_idx, ksv_idx, faif_idx, gammaa_idx, infilt_limit_idx, dt, slo_count)
+%
+% 
+% [ref]
 
 for K = 1:slo_count
 

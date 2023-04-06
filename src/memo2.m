@@ -1,14 +1,21 @@
-%% rainfall
+%% hr2vr（改良）
 
-itemp = -1;
-for jtemp = 1:tt_max_rain
-    if t_rain(jtemp) < (time + ddt) && (time + ddt) <= t_rain(jtemp+1); itemp = jtemp; end
-end
-for J = 1:NY
-    if itemp<= 0; continue; end  % バグ回避のため追加
-    if rain_i(J) < 1 || rain_i(J) > ny_rain; continue; end
-    for I = 1:NX
-        if rain_j(I) < 1 || rain_j(I) > nx_rain; continue; end
-        qp_t(I, J) = qp(rain_j(I), rain_i(J), itemp);
-    end
+% for K = 1:riv_count
+%     vr_idx(K) = hr2vr_new(hr_idx(K), K, area, area_ratio_idx(K));  % Kは不要になりそう
+% end
+vr_idx = hr2vr_new(hr_idx, area, area_ratio_idx);
+
+function vr = hr2vr_new(hr, area, area_ratio_idx)  % calculating vr[m^3] by using hr[m]
+
+riv_count = 1484;
+sec_map_idx = zeros(riv_count, 1); % 後で削除
+id = (sec_map_idx > 0);
+
+vr = hr * area .* area_ratio_idx;
+
+% if id <= 0
+%  vr = hr * area * area_ratio_idx; 
+% else
+% end
+
 end

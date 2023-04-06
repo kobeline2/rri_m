@@ -100,9 +100,8 @@ for K = 1:slo_count
         else
         % coming in
             h = hs_n;
-            dh = abs(dh);
             if zb_n < zb_p; h = max(0, zb_n + hs_n - zb_p); end
-            [t,h]=ode45(@(t,h) odefun_s(t, h, dh, ns_p, ka_p, da_p, dm_p, b_p, len, area),[time time+ddt],h);
+            [t,h]=ode45(@(t,h) odefun_s(t, h, abs(dh), ns_p, ka_p, da_p, dm_p, b_p, len, area),[time time+ddt],h);
             qs_idx(L,K) = -h(end);
         end
     

@@ -404,7 +404,7 @@ for T = 1:maxt
     %%%%%%%%%%%%%%%%%% ------------- Funcs
 
     fs_idx = zeros(slo_count, 1);
-    qs_idx = zeros(i4, slo_count);  
+    qs_idx = zeros(i4, slo_count);  % slopeセルの流量（面積あたり）[m/s]
 
     for K = 1:slo_count
         zb_p = zb_slo_idx(K);
@@ -477,6 +477,7 @@ for T = 1:maxt
             fs_idx(KK) = fs_idx(KK) + qs_idx(L, K);
         end
     end
+
     
     %%%%%%%%%%%%%%%%%% ------------- end Funcs
     
@@ -497,7 +498,8 @@ for T = 1:maxt
 % 使用しない
 
 %%%-------------------------- RIVER-SLOPE INTERACTION  -----------------%%%
-
+    [hr, hs] = funcrs(hr, hs, NX, NY, domain, ...
+        riv, height, depth, riv_ij2idx, len_riv_idx, dt, area, area_ratio_idx);
 
 %%%-------------------------- INFILTRATION (Green Ampt)  ---------------%%%
     hs_idx = infilt(hs_idx, gampt_f_idx, gampt_ff_idx, ksv_idx, faif_idx, gammaa_idx, infilt_limit_idx, dt, slo_count);
