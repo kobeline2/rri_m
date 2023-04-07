@@ -116,9 +116,10 @@ end
 % qs_idx > 0 --> discharge flowing out from a cell
 
 %$omp parallel do
-for K = 1:slo_count
- fs_idx(K) = qp_t_idx(K) - (qs_idx(1,K) + qs_idx(2,K) + qs_idx(3,K) + qs_idx(4,K));
-end
+% for K = 1:slo_count
+%  fs_idx(K) = qp_t_idx(K) - (qs_idx(1,K) + qs_idx(2,K) + qs_idx(3,K) + qs_idx(4,K));
+% end
+fs_idx = qp_t_idx - sum(qs_idx,1)';
 %$omp end parallel do
 
 for K = 1:slo_count

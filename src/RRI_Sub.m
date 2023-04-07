@@ -153,18 +153,18 @@ acc_slo_idx           = flowAcc(domAndSlo);       % 集水面積
 land_idx              = land(domAndSlo);          % 土地利用
 
 dif_slo_idx      = dif(land(domAndSlo))';         % 1:拡散波近似，2:kinematic
-ns_slo_idx       = ns_slope(land(domAndSlo))';    % ns_slope
-soildepth_idx    = soildepth(land(domAndSlo))';   % 
-gammaa_idx       = gammaa(land(domAndSlo))';      %
-ksv_idx          = ksv(land(domAndSlo))';         %
-faif_idx         = faif(land(domAndSlo))';        %
-infilt_limit_idx = infilt_limit(land(domAndSlo))';%
+ns_slo_idx       = ns_slope(land(domAndSlo))';    % 粗度係数
+soildepth_idx    = soildepth(land(domAndSlo))';   % 土層厚
+gammaa_idx       = gammaa(land(domAndSlo))';      % 間隙率
+ksv_idx          = ksv(land(domAndSlo))';         % 鉛直方向の透水係数
+faif_idx         = faif(land(domAndSlo))';        % 湿潤前線における吸引圧
+infilt_limit_idx = infilt_limit(land(domAndSlo))';% 浸透する水の上限　(= soildepth * gammaa)
 
-ka_idx           = ka(land(domAndSlo))';          %
-gammam_idx       = gammam(land(domAndSlo))';      %
-beta_idx         = beta(land(domAndSlo))';        %
-da_idx           = da(land(domAndSlo))';          %
-dm_idx           = dm(land(domAndSlo))';          %
+ka_idx           = ka(land(domAndSlo))';          % 水平方向の透水係数
+gammam_idx       = gammam(land(domAndSlo))';      % 不飽和間隙率
+beta_idx         = beta(land(domAndSlo))';        % パラメータ
+da_idx           = da(land(domAndSlo))';          % 間隙 (= soildepth * gammaa)
+dm_idx           = dm(land(domAndSlo))';          % 不飽和間隙 (= soildepth * gammam)
 % ksg_idx          = ksg(land(domAndSlo))';         %
 % gammag_idx       = gammag(land(domAndSlo))';      %
 % kg0_idx          = kg0(land(domAndSlo))';         %
@@ -204,14 +204,17 @@ end
 
 %%%-------------------------- array initialization ---------------------%%%
 
-hr_idx = zeros(riv_count, 1);
-vr_idx = zeros(riv_count, 1);
+hr_idx = zeros(riv_count, 1);        % rivセルの水深
+vr_idx = zeros(riv_count, 1);        % rivセルの流量
 
-hs_idx = zeros(slo_count, 1);
-qp_t_idx = zeros(slo_count, 1);
+hs_idx = zeros(slo_count, 1);        % sloセルの水深
+qp_t_idx = zeros(slo_count, 1);      % sloセルの降水量
 
-rain_i = zeros(NY, 1);
-rain_j = zeros(NX, 1);
+gampt_ff_idx = zeros(slo_count, 1);  % accumulated infiltration depth [m]
+gampt_f_idx = zeros(slo_count, 1);   % infiltration capacity [m/s]
+
+rain_i = zeros(NY, 1);               % 該当するrainのy座標（横方向）
+rain_j = zeros(NX, 1);               % 該当するrainのx座標（縦方向）
 
 
 %%%-------------------------- gw initial setting -----------------------%%%
@@ -393,7 +396,7 @@ for T = 1:maxt
             qp_t(I, J) = qp(rain_j(I), rain_i(J), itemp);
         end
     end
-    qo_t_idx = sub_slo_ij2idx(qp_t, qp_t_idx, slo_count, slo_idx2i, slo_idx2j);
+    qp_t_idx = sub_slo_ij2idx(qp_t, qp_t_idx, slo_count, slo_idx2i, slo_idx2j);
     
     %%%% boundary condition
     
@@ -401,7 +404,7 @@ for T = 1:maxt
     %%%%%%%%%%%%%%%%%% ------------- Funcs
 
     fs_idx = zeros(slo_count, 1);
-    qs_idx = zeros(i4, slo_count);  
+    qs_idx = zeros(i4, slo_count);  % slopeセルの流量（面積あたり）[m/s]
 
     for K = 1:slo_count
         zb_p = zb_slo_idx(K);
@@ -447,23 +450,31 @@ for T = 1:maxt
             %  water coming in or going out?
             if dh >= 0
                 % going out
-                hw = hs_p;
-                % if emb > 0; hw = max(hs_p - emb, 0); end
-                if zb_p < zb_n; hw = max(0, zb_p + hs_p - zb_n); end
-                qs_idx(L,K) = hq(ns_p, ka_p, da_p, dm_p, b_p, hw, dh, len, area);
+            h = hs_p;
+            if zb_p < zb_n; h = max(0, zb_p + hs_p - zb_n); end
+            [t,h]=ode45(@(t,h) odefun_s(t, h, dh, ns_p, ka_p, da_p, dm_p, b_p, len, area),[time time+ddt],h);
+            qs_idx(L,K) = h(end);
             else
             % coming in
-                hw = hs_n;
-                % if emb > 0; hw = max(hs_n - emb, 0); end
-                dh = abs(dh);
-                if zb_n < zb_p; hw = max(0, zb_n + hs_n - zb_p); end
-                qs_idx(L,K) =  - hq(ns_p, ka_p, da_p, dm_p, b_p, hw, dh, len, area);
+            h = hs_n;
+            if zb_n < zb_p; h = max(0, zb_n + hs_n - zb_p); end
+            [t,h]=ode45(@(t,h) odefun_s(t, h, abs(dh), ns_p, ka_p, da_p, dm_p, b_p, len, area),[time time+ddt],h);
+            qs_idx(L,K) = -h(end);
             end
+        end
+    end
+    
+    %%%% boundary condition
+    
+    fs_idx = qp_t_idx - sum(qs_idx,1)';
 
-            %%%% boundary condition
-
-
-
+    for K = 1:slo_count
+        for L = 1:lmax
+            if dif_slo_idx(K) == 0 && L == 2; break; end % kinematic -> 1-direction
+            KK = down_slo_idx(L, K);
+            if dif_slo_idx(K) == 0; KK = down_slo_1d_idx(K); end
+            if KK == -1; continue; end
+            fs_idx(KK) = fs_idx(KK) + qs_idx(L, K);
         end
     end
 
@@ -487,10 +498,11 @@ for T = 1:maxt
 % 使用しない
 
 %%%-------------------------- RIVER-SLOPE INTERACTION  -----------------%%%
-
+    [hr, hs] = funcrs(hr, hs, NX, NY, domain, ...
+        riv, height, depth, riv_ij2idx, len_riv_idx, dt, area, area_ratio_idx);
 
 %%%-------------------------- INFILTRATION (Green Ampt)  ---------------%%%
-
+    hs_idx = infilt(hs_idx, gampt_f_idx, gampt_ff_idx, ksv_idx, faif_idx, gammaa_idx, infilt_limit_idx, dt, slo_count);
 
 
 %%%-------------------------- SET WATER DEPTH 0 AT DOMAIN = 2  ---------%%%
@@ -511,39 +523,26 @@ dhdt = A * R^(2/3) * w * h  / (A1 * A2);
 end
 
 
-function q = hq(ns_p, ka_p, da_p, dm_p, b_p, h, dh, len, area)
+function dhdt = odefun_s(t, h, dh, ns_p, ka_p, da_p, dm_p, b_p, len, area)
 
-if b_p > 0
-    km = ka_p / b_p;
-else
-    km = 0;
-end
-vm = km * dh;
+km = 0;
+if b_p > 0; km = ka_p / b_p; end  % マトリックス部の透水係数
+vm = km * dh;  % マトリックス部の流速
 
-if da_p > 0
-    va = ka_p * dh;
-else
-    va = 0;
-end
+va = 0;  % 大空隙部の流速（空隙あり）
+if da_p > 0; va = ka_p * dh; end  % 大空隙部の流速（空隙なし）
 
 if dh < 0; dh = 0; end
 al = sqrt(dh) / ns_p;
 m = 5 / 3;
 
 if h < dm_p 
-    q = vm * dm_p * (h / dm_p) ^ b_p;
+    dhdt = vm * dm_p * (h / dm_p) ^ b_p;  % h <= dm
 elseif h < da_p 
-    q = vm * dm_p + va * (h - dm_p);
+    dhdt = vm * dm_p + va * (h - dm_p);   % dm < h <= da
 else
-    q = vm * dm_p + va * (h - dm_p) + al * (h - da_p) ^ m;
+    dhdt = vm * dm_p + va * (h - dm_p) + al * (h - da_p) ^ m;  % da < h
 end
 
-% discharge per unit area
-% (q multiply by width and divide by area)
-q = q * len / area;
-
-% water depth limitter (1 mm)
-% note: it can be set to zero
-% if( h.le.0.001 ) q = 0.d0
-
-end 
+dhdt = dhdt * len / area;  % discharge per unit area
+end

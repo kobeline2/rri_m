@@ -1,5 +1,10 @@
-%% subroutine hr2vr
-function vr = hr2vr(hr,k,area,area_ratio_idx)  % calculating vr[m^3] by using hr[m]
+function vr = hr2vr(hr,k,area,area_ratio_idx)  
+% hr2vr  calculating vr[m^3] by using hr[m]
+% subroutine hr2vr
+% vr = hr2vr(hr,k,area,area_ratio_idx)
+%
+% 
+% [ref]
 
 % id = sec_map_idx(k)
 id = 0;

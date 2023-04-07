@@ -46,89 +46,108 @@
 
 %% slope
 
-K = 100;
+tic
 
-zb_p = zb_slo_idx(K);
-hs_p = hs_idx(K);
-ns_p = ns_slo_idx(K);
-ka_p = ka_idx(K);
-da_p = da_idx(K);
-dm_p = dm_idx(K);
-b_p  = beta_idx(K);
-dif_p = dif_slo_idx(K);
+    fs_idx = zeros(slo_count, 1);
+    qs_idx = zeros(i4, slo_count);  % slopeセルの流量（面積あたり）[m/s]
 
-for L = 1:lmax % (1: right�C2: down, 3: right down, 4: left down)
-    if dif_p == 0 && L == 2; break; end % kinematic -> 1-direction
-    KK = down_slo_idx(L, K);
-    if dif_p == 0; KK = down_slo_1d_idx(K); end
-    if KK == -1; continue; end
-
-    distance = dis_slo_idx(L, K);
-    len = len_slo_idx(L, K);
-    if dif_p == 0; distance = dis_slo_1d_idx(K); end
-    if dif_p == 0; len = len_slo_1d_idx(K); end
-
-    zb_n = zb_slo_idx(KK);
-    hs_n = hs_idx(KK);
-    ns_n = ns_slo_idx(KK);
-    ka_n = ka_idx(KK);
-    da_n = da_idx(KK);
-    dm_n = dm_idx(KK);
-    b_n = beta_idx(KK);
-    dif_n = dif_slo_idx(KK);
-
-    lev_p = h2lev(hs_p, soildepth_idx(K), gammaa_idx(K));
-    lev_n = h2lev(hs_n, soildepth_idx(KK), gammaa_idx(KK));
-
-    % diffusion wave
-    dh = ((zb_p + lev_p) - (zb_n + lev_n)) / distance;
-
-    % 1-direction : kinematic wave
-    if dif_p == 0; dh = max( (zb_p - zb_n) / distance, 0.001 ); end
-
-    %  water coming in or going out?
-    if dh >= 0
-        % going out
-        h = hs_p;
-        if zb_p < zb_n; h = max(0, zb_p + hs_p - zb_n); end
-%         qs_idx(L,K) = hq(ns_p, ka_p, da_p, dm_p, b_p, h, dh, len, area);
-        [t,h]=ode45(@(t,h) odefun_s(t,h,dh,ns_river,width_idx(K),area,area_ratio_idx(K)),[time time+ddt],h);
-    else
-    % coming in
-%         h = hs_n;
-%         dh = abs(dh);
-%         if zb_n < zb_p; h = max(0, zb_n + hs_n - zb_p); end
-%         qs_idx(L,K) =  - hq(ns_p, ka_p, da_p, dm_p, b_p, h, dh, len, area);
+for K = 1:slo_count
+    zb_p = zb_slo_idx(K);
+    hs_p = hs_idx(K);
+    ns_p = ns_slo_idx(K);
+    ka_p = ka_idx(K);
+    da_p = da_idx(K);
+    dm_p = dm_idx(K);
+    b_p  = beta_idx(K);
+    dif_p = dif_slo_idx(K);
+    
+    for L = 1:lmax % (1: right�C2: down, 3: right down, 4: left down)
+        if dif_p == 0 && L == 2; break; end % kinematic -> 1-direction
+        KK = down_slo_idx(L, K);
+        if dif_p == 0; KK = down_slo_1d_idx(K); end
+        if KK == -1; continue; end
+    
+        distance = dis_slo_idx(L, K);
+        len = len_slo_idx(L, K);
+        if dif_p == 0; distance = dis_slo_1d_idx(K); end
+        if dif_p == 0; len = len_slo_1d_idx(K); end
+    
+        zb_n = zb_slo_idx(KK);
+        hs_n = hs_idx(KK);
+        ns_n = ns_slo_idx(KK);
+        ka_n = ka_idx(KK);
+        da_n = da_idx(KK);
+        dm_n = dm_idx(KK);
+        b_n = beta_idx(KK);
+        dif_n = dif_slo_idx(KK);
+    
+        lev_p = h2lev(hs_p, soildepth_idx(K), gammaa_idx(K));
+        lev_n = h2lev(hs_n, soildepth_idx(KK), gammaa_idx(KK));
+    
+        % diffusion wave
+        dh = ((zb_p + lev_p) - (zb_n + lev_n)) / distance;
+    
+        % 1-direction : kinematic wave
+        if dif_p == 0; dh = max( (zb_p - zb_n) / distance, 0.001 ); end
+    
+        %  water coming in or going out?
+        if dh >= 0
+            % going out
+            h = hs_p;
+            if zb_p < zb_n; h = max(0, zb_p + hs_p - zb_n); end
+            [t,h]=ode45(@(t,h) odefun_s(t, h, dh, ns_p, ka_p, da_p, dm_p, b_p, len, area),[time time+ddt],h);
+            qs_idx(L,K) = h(end);
+        else
+        % coming in
+            h = hs_n;
+            if zb_n < zb_p; h = max(0, zb_n + hs_n - zb_p); end
+            [t,h]=ode45(@(t,h) odefun_s(t, h, abs(dh), ns_p, ka_p, da_p, dm_p, b_p, len, area),[time time+ddt],h);
+            qs_idx(L,K) = -h(end);
+        end
+    
     end
-
 end
 
-function q = hq(ns_p, ka_p, da_p, dm_p, b_p, h, dh, len, area)
 
-if b_p > 0
-    km = ka_p / b_p;
-else
-    km = 0;
-end
-vm = km * dh;
+% for K = 1:slo_count
+%  fs_idx(K) = qp_t_idx(K) - (qs_idx(1,K) + qs_idx(2,K) + qs_idx(3,K) + qs_idx(4,K));
+% end
+fs_idx = qp_t_idx - sum(qs_idx,1)';   % 水深　＝　降雨量[m]　ー　流出量[m]
 
-if da_p > 0
-    va = ka_p * dh;
-else
-    va = 0;
+for K = 1:slo_count
+    for L = 1:lmax
+        if dif_slo_idx(K) == 0 && L == 2; break; end % kinematic -> 1-direction
+    KK = down_slo_idx(L, K);
+    if dif_slo_idx(K) == 0; KK = down_slo_1d_idx(K); end
+    if KK == -1; continue; end
+    fs_idx(KK) = fs_idx(KK) + qs_idx(L, K);
+    end
 end
+
+toc
+
+
+function dhdt = odefun_s(t, h, dh, ns_p, ka_p, da_p, dm_p, b_p, len, area)
+
+km = 0;
+if b_p > 0; km = ka_p / b_p; end  % マトリックス部の透水係数
+vm = km * dh;  % マトリックス部の流速
+
+va = 0;  % 大空隙部の流速（空隙あり）
+if da_p > 0; va = ka_p * dh; end  % 大空隙部の流速（空隙なし）
 
 if dh < 0; dh = 0; end
 al = sqrt(dh) / ns_p;
 m = 5 / 3;
 
 if h < dm_p 
-    q = vm * dm_p * (h / dm_p) ^ b_p;
+    dhdt = vm * dm_p * (h / dm_p) ^ b_p;  % h <= dm
 elseif h < da_p 
-    q = vm * dm_p + va * (h - dm_p);
+    dhdt = vm * dm_p + va * (h - dm_p);   % dm < h <= da
 else
-    q = vm * dm_p + va * (h - dm_p) + al * (h - da_p) ^ m;
+    dhdt = vm * dm_p + va * (h - dm_p) + al * (h - da_p) ^ m;  % da < h
 end
 
+dhdt = dhdt * len / area;  % discharge per unit area
 end
 
