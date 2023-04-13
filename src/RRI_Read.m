@@ -1,6 +1,6 @@
 %% RRI_Read.f90
 
-lines = readvars('RRI_Input.txt','Range','1:100'); % 修正したい
+lines = readvars('../RRI_Input.txt','Range','1:100'); % 修正したい
 lines = cellfun(@split, lines, 'UniformOutput', false);
 
 format_version = lines{1}{:};
