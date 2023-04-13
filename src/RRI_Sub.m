@@ -226,25 +226,25 @@ disp("done: reading rain file")
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% STEP 3 : CALCULATION
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-rain_sum = 0;
-aevp_sum = 0;
-sout = 0;
+rain_sum = 0; % accumulated rainfall
+aevp_sum = 0; % accumulated evaporation
+sout = 0;     % accumulated runoff from river mouth
 
-out_dt = maxt / outnum;
+out_dt = maxt / outnum; % output outnum times per run.
 out_dt = max(1, out_dt);
 out_next = round(out_dt);
 TT = 0;
 
 maxt = 2; % practice
 for T = 1:maxt
-    if mod(T,1)==0; disp([num2str(T), '/',num2str(maxt)]);end
+    if mod(T,1)==0; fprintf("%d/%d\n", T, maxt); end
 
 %%%-------------------------- RIVER CALCULATION ------------------------%%%
     % if rivThresh < 0 go to 2
     
     time = (T - 1) * dt; 
     % time step is initially set to be "dt_riv"
-    ddt = dt_riv;
+    ddt = dt_riv; % 本来のRRIではRK計算のエラーが大きくなるとddtを小さくすることがある
     ddt_chk_riv = dt_riv;
     
     qr_ave = zeros(NX,NY);

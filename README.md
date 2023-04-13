@@ -19,3 +19,5 @@ RRI model written in MATLAB
 
 ## 課題
 1. area_ratio = width .* len_riv / cellareaの意味 (230413, RRI_Sub)
+1. ddt_chk_riv = dt_rivの意味 (230413, RRI_Sub) 多分使われない．
+
