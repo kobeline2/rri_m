@@ -47,8 +47,7 @@ fpg    = str_split_cell2mat(lines{29}, 'fpg');
 rgl    = str_split_cell2mat(lines{30}, 'rgl');
 disp(' ')
 
-
-
+% rivfile_switch=1: 川幅と河道深さと堤防高データがある
 rivfile_switch = str_split_cell2mat(lines{38}, '');
 if rivfile_switch == 0
     rivThresh          = str_split_cell2mat(lines{31}, 'rivThresh');
@@ -59,9 +58,9 @@ if rivfile_switch == 0
     height_param       = str_split_cell2mat(lines{36}, 'height_param');
     height_limit_param = str_split_cell2mat(lines{37}, 'height_limit_param');
 else
-    widthfile  = lines{39}{:}; disp(['widthfile : '  , dirfile])
-    depthfile  = lines{40}{:}; disp(['depthfile : '  , dirfile])
-    heightfile = lines{41}{:}; disp(['heightfile : ' , dirfile])
+    widthfile  = lines{39}{:}; disp(['widthfile : '  , widthfile])
+    depthfile  = lines{40}{:}; disp(['depthfile : '  , depthfile])
+    heightfile = lines{41}{:}; disp(['heightfile : ' , heightfile])
 end
 disp(' ')
 
@@ -93,9 +92,12 @@ disp(' ')
 % if bound_riv_disc_switch ~= 0, disp(['boundfile_riv_disc : ', boundfile_riv_disc]), end
 % disp(' ')
 
+% land_switch=1:土地利用データあり
 land_switch = str_split_cell2mat(lines{53}, '');
-landfile    = lines{54}{:};
-if land_switch == 1, disp(['landfile : ', landfile]), end
+if land_switch == 1
+    landfile    = lines{54}{:};
+    disp(['landfile : ', landfile])
+end
 
 % dam_switch = str_split_cell2mat(lines{55}, '');
 % damfile    = lines{56}{:};
@@ -157,9 +159,12 @@ if land_switch == 1, disp(['landfile : ', landfile]), end
 % if outswitch_storage  ~= 0, disp(['outfile_storage : ', outfile_storage]), end
 % disp(' ')
 
+%　hydro_switch=1: location_file（流量・水位を出力させたい地点）がある
 hydro_switch  = str_split_cell2mat(lines{80}, '');
-location_file = lines{81}{:};
-if hydro_switch == 1, disp(['location_file : ', location_file]), end
+if hydro_switch == 1
+   location_file = lines{81}{:};
+   disp(['location_file : ', location_file])
+end
 
 for I = 1:num_of_landuse
     if (ksv(I) > 0) && (ka(I) > 0), error("Error: both ksv and ka are non-zero."), end
@@ -171,7 +176,7 @@ da           = zeros(1, num_of_landuse);
 dm           = zeros(1, num_of_landuse);
 for I = 1:num_of_landuse
     if (soildepth(I) > 0) && (ksv(I) > 0), infilt_limit(I) = soildepth(I) * gammaa(I); end
-    if (soildepth(I) > 0) && (ka(I) > 0), da(I) = soildepth(I) * gammaa(I); end
+    if (soildepth(I) > 0) && (ka(I)  > 0), da(I) = soildepth(I) * gammaa(I); end
     if (soildepth(I) > 0) && (ksv(I) > 0) && (gammam(I) > 0), dm(I) = soildepth(I) * gammam(I); end
 end
 
