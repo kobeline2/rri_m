@@ -23,121 +23,78 @@ NY = str2double(cell2mat(params{2}(2)));
 XLLCORNER = str2double(cell2mat(params{3}(2)));
 YLLCORNER = str2double(cell2mat(params{4}(2)));
 CELLSIZE  = str2double(cell2mat(params{5}(2)));
-NODATA    = str2double(cell2mat(params{6}(2))); 
 
+% 注意：以下は転値している
+zs      = readGisFile(demfile,NX,NY,XLLCORNER,YLLCORNER,CELLSIZE)'; % 地表の標高
+flowAcc = readGisFile(accfile,NX,NY,XLLCORNER,YLLCORNER,CELLSIZE)'; % 集水面積
+flowDir = readGisFile(dirfile,NX,NY,XLLCORNER,YLLCORNER,CELLSIZE)'; % 流向
 
-zs = zeros(NX,NY);        % 地表の標高
-zb = zeros(NX,NY);        % 不透水層の標高
-zb_riv = zeros(NX,NY);    % 河川セルの標高
-domain = zeros(NX,NY);    % 0:範囲外，1:範囲内,2:河口，端
-flowAcc = zeros(NX,NY);   % 集水面積
-flowDir = zeros(NX,NY);   % 流向
-
-zs      = readGisFile(demfile,NX,NY,XLLCORNER,YLLCORNER,CELLSIZE)'; % 転置！
-flowAcc = readGisFile(accfile,NX,NY,XLLCORNER,YLLCORNER,CELLSIZE)';
-flowDir = readGisFile(dirfile,NX,NY,XLLCORNER,YLLCORNER,CELLSIZE)';
-
-land = ones(NX,NY);   %土地利用
+land = ones(NX, NY);   %土地利用
 if land_switch == 1
     land = readGisFile(landfile,NX,NY,XLLCORNER,YLLCORNER,CELLSIZE)';
 end
 disp(['num_of_landuse : ' , num2str(num_of_landuse)]);
-land(land <= 0 | land > num_of_landuse) = num_of_landuse;
+land(land <= 0) = num_of_landuse;
+if sum(unique(land) > num_of_landuse) > 0
+    error("Invalid landuse number included.")
+end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% STEP 2 : CALC PREPARATION
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% d1:south side length (x1,y1):右上，(x2,y2):右下
-x1 = XLLCORNER;
-y1 = YLLCORNER;
-x2 = XLLCORNER + NX * CELLSIZE;
-y2 = YLLCORNER;
-if( utm == 0 ); d1 = hubenySub( x1, y1, x2, y2 ); end 
+[dx, dy] = metricCellsize(XLLCORNER, YLLCORNER, NX, NY, CELLSIZE, utm);
 
-% d2:north side length (x1,y1):左上，(x2,y2):左下
-x1 = XLLCORNER;
-y1 = YLLCORNER + NY * CELLSIZE;
-x2 = XLLCORNER + NX * CELLSIZE;
-y2 = YLLCORNER + NY * CELLSIZE;
-if( utm == 0 ); d2 = hubenySub( x1, y1, x2, y2 ); end 
+leveeHeight  = zeros(NX,NY); % 堤防の高さ
+len_riv = zeros(NX,NY);      % セルの対角線長を河川領域にのみ定義したもの
 
-% d3:west side length (x1,y1):右上，(x2,y2):左上
-x1 = XLLCORNER;
-y1 = YLLCORNER;
-x2 = XLLCORNER;
-y2 = YLLCORNER + NY * CELLSIZE;
-if( utm == 0 ); d3 = hubenySub( x1, y1, x2, y2 ); end 
+len = sqrt(dx * dy);         % セルの対角線長
+cellarea = dx * dy;
 
-% d1:east side length (x1,y1):右下，(x2,y2):左下
-x1 = XLLCORNER + NX * CELLSIZE;
-y1 = YLLCORNER;
-x2 = XLLCORNER + NX * CELLSIZE;
-y2 = YLLCORNER + NY * CELLSIZE;
-if( utm == 0 ); d4 = hubenySub( x1, y1, x2, y2 ); end 
-
-if utm == 1
-    dx = CELLSIZE;
-    dy = CELLSIZE;
-else
-    dx = double( (d1 + d2) / 2 / NX);
-    dy = double( (d3 + d4) / 2 / NY);
-end
-disp(['dx [m] : ', num2str(dx),'    dy [m] : ', num2str(dy)] )
-
-height = zeros(NX,NY); % width, depth, area_ratio は事前割り当て不要
-len_riv = zeros(NX,NY);
-
-len = sqrt(dx * dy);
-area = dx * dy;
-
-riv = (flowAcc > rivThresh);
+riv = (flowAcc > rivThresh); % 1:river, 0:others
 width = (width_param_c * (flowAcc*dx*dy*1d-6) .^ width_param_s) .* riv; % 川幅
 depth = (depth_param_c * (flowAcc*dx*dy*1d-6) .^ depth_param_s) .* riv; % 河道深さ
-height(riv == 1 & flowAcc > height_limit_param) = height_param;         % 堤防高
+leveeHeight(riv & (flowAcc > height_limit_param)) = height_param;       % 堤防高
 
+% % 川幅, 河道深さ, 堤防高が与えられたとき
 % if rivfile_swtch >= 1
 %     
 % end
-len_riv(riv == 1) = len;
+len_riv(riv) = len;
 
 % sec_switch, sec_length_switch に関するオプション
 
-area_ratio = width .* len / area;
+area_ratio = width .* len_riv / cellarea;
+zb_riv = zeros(size(zs)); % 河川の不透水層の標高
+zb_riv(riv) = zs(riv) - depth(riv);
+zb = zs - soildepth(land); % 不透水層の標高
 
-zb_riv = zs;
-for I = 1:NX
-    for J = 1:NY
-        zb(I,J) = zs(I,J) - soildepth(land(I,J));
-        if riv(I,J)==1; zb_riv(I,J) = zs(I,J) - depth(I,J);end
-    end
-end
-
+domain = zeros(NX,NY);    % 0:解析範囲外，1:範囲内, 2:河口，端
 domain(zs>-100) = 1;
-domain(flowDir == 0 | flowDir == -1) = 2;
-numOfCell = sum(domain >= 1,'all');
+domain(flowDir == 0 | flowDir == -1) = 2; % 0 or -1 is outlet point
+numOfCell = nnz(domain); % count non-zero cell number
 disp(['num_of_cell : ', num2str(numOfCell)])
-disp(['total area [km2] : ', num2str(numOfCell * area / (10 ^ 6))])
+disp(['total area [km^2] : ', num2str(numOfCell * cellarea / (10^6))])
 
 %%% ----------------------- call riv_idx_setting ---------------------- %%%
-riv_count = sum(domain > 0 & riv == 1,'all'); % number of river cell
+riv_count = nnz((domain > 0) & riv); % number of river cell
 
-domAndRiv             = (domain>0 & riv==1);      % 1:rivセル， 0:範囲外 or sloのみ                        
+domAndRiv             = (domain>0) & riv;         % 1:rivセル， 0:範囲外 or sloのみ                        
 [riv_idx2i,riv_idx2j] = find(domAndRiv');         % rivセルのx,y座標
 riv_ij2idx            = zeros(size(domAndRiv));   % rivセルの座標
 riv_ij2idx(domAndRiv) = 1:sum(domAndRiv, 'all');  % rivセルの番号を振る  
 domain_riv_idx        = domain(domAndRiv);        % domain
 width_idx             = width(domAndRiv);         % 川幅
 depth_idx             = depth(domAndRiv);         % 河道深さ
-height_idx            = height(domAndRiv);        % 堤防高
+height_idx            = leveeHeight(domAndRiv);   % 堤防高
 area_ratio_idx        = area_ratio(domAndRiv);    % セルにおける河川の割合
 zb_riv_idx            = zb_riv(domAndRiv);        % 不透水層の標高
 dif_riv_idx           = dif(land(domAndRiv))';    % 1:拡散波近似，2:kinematic
 % RRI_Input.txtで指定する土地利用ごとのパラメータを縦ベクトルに統一するため転置する(Sloも同様)
-% sec_map_idx           = sec_map(domAndRiv);       % 
+% sec_map_idx           = sec_map(domAndRiv);     % 
 len_riv_idx           = len_riv(domAndRiv);       % 河川の長さ
 
-[dis_riv_idx,down_riv_idx] = rivIdxSetting(riv_count,NX,NY,domain,riv,flowDir,dx,dy,riv_ij2idx);
+[dis_riv_idx, down_riv_idx] = rivIdxSetting(riv_count,NX,NY,domain,riv,flowDir,dx,dy,riv_ij2idx);
 
 %%% ------------------------ call slo_idx_setting --------------------- %%%
 i4 = 4;
@@ -174,19 +131,18 @@ dm_idx           = dm(land(domAndSlo))';          % 不飽和間隙 (= soildepth
 [down_slo_idx,dis_slo_idx,len_slo_idx,down_slo_1d_idx,dis_slo_1d_idx,len_slo_1d_idx] ...
     = sloIdxSetting(slo_count,NX,NY,domain,flowDir,dx,dy,slo_ij2idx,i4,eightFlowDir);
 
-lmax = 4;  % 重複してしまっている．．．
-if eightFlowDir == 0; lmax = 2; end
+if eightFlowDir == 0; lmax = 2; else; lmax = 4; end
 
 %%%-------------------------- call dam_read ----------------------------%%%
 
 %%%-------------------------- initial condition ------------------------%%%
 
-hs = zeros(NX,NY);
-hr = zeros(NX,NY);
-hg = zeros(NX,NY);
-gampt_ff = zeros(NX,NY);
-gampt_f = zeros(NX,NY);
-qrs = zeros(NX,NY);
+hs = zeros(NX,NY); % slope(not river)の水深
+hr = zeros(NX,NY); % river の水深
+hg = zeros(NX,NY); % 地下水位（オプション）
+gampt_ff = zeros(NX,NY); % accumulated filtration depth(今浸透している量)[m]
+gampt_f  = zeros(NX,NY); % 単位時間あたりに浸透できる流量 (infiltration capacity)[m]
+qrs = zeros(NX,NY);      % slopeとriver間の水のやりとりの量
 
 hr(~riv) = -0.1;
 hs(~domAndSlo) = -0.1;
@@ -298,7 +254,7 @@ for T = 1:maxt
     hr_idx = sub_riv_ij2idx(hr, hr_idx, riv_count, riv_idx2i, riv_idx2j);
     
     for K = 1:riv_count
-        vr_idx(K) = hr2vr(hr_idx(K), K, area, area_ratio_idx(K));  % Kは不要になりそう
+        vr_idx(K) = hr2vr(hr_idx(K), K, cellarea, area_ratio_idx(K));  % Kは不要になりそう
     end
     
     % "time + ddt" should be less than "t * dt"
@@ -316,7 +272,7 @@ for T = 1:maxt
 %     qr_div_idx = zeros(riv_count, 1);
 
     for K = 1:riv_count
-        hr_idx(K) = vr2hr(vr_idx(K),K,area, area_ratio_idx(K));
+        hr_idx(K) = vr2hr(vr_idx(K),K,cellarea, area_ratio_idx(K));
     end
 
     %%%% boundary condition
@@ -353,12 +309,12 @@ for T = 1:maxt
         if dh >= 0
             h = hr_p;
             if zb_p < zb_n; h = max(0.d0, zb_p + hr_p - zb_n); end
-            [t,h]=ode45(@(t,h) odefun_r(t,h,dh,ns_river,width_idx(K),area,area_ratio_idx(K)),[time time+ddt],h);
+            [t,h]=ode45(@(t,h) odefun_r(t,h,dh,ns_river,width_idx(K),cellarea,area_ratio_idx(K)),[time time+ddt],h);
             hr_idx(K) = h(end);
         else
             h = hr_n;
             if zb_n < zb_p ; h = max(0.d0, zb_n + hr_n - zb_p); end
-            [t,h]=ode45(@(t,h) odefun_r(t,h,dh,ns_river,width_idx(K),area,area_ratio_idx(K)),[time time+ddt],h);
+            [t,h]=ode45(@(t,h) odefun_r(t,h,dh,ns_river,width_idx(K),cellarea,area_ratio_idx(K)),[time time+ddt],h);
             hr_idx(K) = -h(end);
         end
     end
@@ -452,13 +408,13 @@ for T = 1:maxt
                 % going out
             h = hs_p;
             if zb_p < zb_n; h = max(0, zb_p + hs_p - zb_n); end
-            [t,h]=ode45(@(t,h) odefun_s(t, h, dh, ns_p, ka_p, da_p, dm_p, b_p, len, area),[time time+ddt],h);
+            [t,h]=ode45(@(t,h) odefun_s(t, h, dh, ns_p, ka_p, da_p, dm_p, b_p, len, cellarea),[time time+ddt],h);
             qs_idx(L,K) = h(end);
             else
             % coming in
             h = hs_n;
             if zb_n < zb_p; h = max(0, zb_n + hs_n - zb_p); end
-            [t,h]=ode45(@(t,h) odefun_s(t, h, abs(dh), ns_p, ka_p, da_p, dm_p, b_p, len, area),[time time+ddt],h);
+            [t,h]=ode45(@(t,h) odefun_s(t, h, abs(dh), ns_p, ka_p, da_p, dm_p, b_p, len, cellarea),[time time+ddt],h);
             qs_idx(L,K) = -h(end);
             end
         end
@@ -482,7 +438,7 @@ for T = 1:maxt
     %%%%%%%%%%%%%%%%%% ------------- end Funcs
     
     % cumulative rainfall
-    rain_sum = sum(qp_t(domAndSlo)) * area * numOfCell * ddt;  % for文なしに変えた
+    rain_sum = sum(qp_t(domAndSlo)) * cellarea * numOfCell * ddt;  % for文なしに変えた
     
 
 %%%-------------------------- GW CALCULATION ---------------------------%%%
@@ -499,7 +455,7 @@ for T = 1:maxt
 
 %%%-------------------------- RIVER-SLOPE INTERACTION  -----------------%%%
     [hr, hs] = funcrs(hr, hs, NX, NY, domain, ...
-        riv, height, depth, riv_ij2idx, len_riv_idx, dt, area, area_ratio_idx);
+        riv, leveeHeight, depth, riv_ij2idx, len_riv_idx, dt, cellarea, area_ratio_idx);
 
 %%%-------------------------- INFILTRATION (Green Ampt)  ---------------%%%
     hs_idx = infilt(hs_idx, gampt_f_idx, gampt_ff_idx, ksv_idx, faif_idx, gammaa_idx, infilt_limit_idx, dt, slo_count);

@@ -1,2 +1,4 @@
-RRI_Read
-RRI_Sub
+function main()
+    RRI_Read
+    RRI_Sub
+end
