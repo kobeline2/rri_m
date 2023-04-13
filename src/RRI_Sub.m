@@ -279,7 +279,7 @@ out_dt = max(1, out_dt);
 out_next = round(out_dt);
 TT = 0;
 
-maxt = 2; % practice
+maxt = 10; % practice
 for T = 1:maxt
     if mod(T,1)==0; disp([num2str(T), '/',num2str(maxt)]);end
 
