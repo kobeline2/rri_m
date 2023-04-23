@@ -18,6 +18,18 @@ RRI model written in MATLAB
 1. dy: セルの縦方向の長さ[m]
 1. len: セルの対角線長( =sqrt(dx*dy) )
 1. area: セルの面積( = dx*dy )
+1. riv: 1：riverありのセル(flowAcc>rivThresh)，0：riverなしのセル
+1. width: 川幅
+1. depth: 河道深さ
+1. leveeHeight: 堤防高
+1. len_riv: セルの対角線長を河川領域にのみ定義したもの
+1. area_ratio: セルにおけるriverの占める面積の割合
+1. zb: 不透水層の標高
+1. zb_riv: 河川の不透水層の標高
+1. domain: 0:解析範囲外，1:範囲内, 2:河口，端
+1. numOfcell: 解析対象のセル数( =nnz(domain)　)
+
+1. riv_count: riverありのセル数
 
 ## 名前変更した変数
 1. area -> cellarea (230413, RRI_Sub)
