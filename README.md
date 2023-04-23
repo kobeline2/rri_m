@@ -14,7 +14,7 @@ RRI model written in MATLAB
 1. flowAcc: 集水面積
 1. flowDir: 流向
 1. land: 土地利用
-2. 1. dx: セルの横方向の長さ[m]
+1. dx: セルの横方向の長さ[m]
 1. dy: セルの縦方向の長さ[m]
 1. len: セルの対角線長( =sqrt(dx*dy) )
 1. area: セルの面積( = dx*dy )
