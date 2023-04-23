@@ -1,9 +1,14 @@
 # rri_m
 RRI model written in MATLAB
 
-## パラメタに関するメモ: RRI_Sub
+## パラメタに関するメモ: RRI_Read
+1. utm: 座標系(1:緯度経度，0:メートル)
+1. eightFlowDir: 流向パターン(1:8方向，0:4方向)
 1. lasth: 計算時間 [hour]
 1. dt: time step [sec]
+1. dt_riv: time step for river[sec]
+
+## パラメタに関するメモ: RRI_Sub
 1. maxt: 計算回数 [-]
 1. NX, NY: 横, 縦のセル数
 1. XLLCORNER, YLLCORNER: 矩形領域の左下の経度，緯度
