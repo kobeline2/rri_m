@@ -28,7 +28,8 @@ RRI model written in MATLAB
 1. zb_riv: 河川の不透水層の標高
 1. domain: 0:解析範囲外，1:範囲内, 2:河口，端
 1. numOfcell: 解析対象のセル数( =nnz(domain)　)
-1. riv_count: riverありのセル数
+
+2. riv_count: riverありのセル数
 
 ## 名前変更した変数
 1. area -> cellarea (230413, RRI_Sub)
