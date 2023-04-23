@@ -29,7 +29,14 @@ RRI model written in MATLAB
 1. domain: 0:解析範囲外，1:範囲内, 2:河口，端
 1. numOfcell: 解析対象のセル数( =nnz(domain)　)
 
-2. riv_count: riverありのセル数
+idx: 2次元のデータを１次元(rivありセルのみ)にしたもの
+1. riv_count: riverありのセル数
+1. domAndRiv: 1:rivセル， 0:範囲外 or sloのみ                        
+1. riv_idx2i: rivセルのy座標
+1. riv_idx2j: rivセルのx座標
+1. riv_ij2idx: rivセルの番号  
+1. dis_riv_idx: 次のセルとの距離 
+1. down_riv_idx　次のセル( riv_ij2idx of next cell )
 
 ## 名前変更した変数
 1. area -> cellarea (230413, RRI_Sub)
