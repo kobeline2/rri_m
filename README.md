@@ -10,8 +10,14 @@ RRI model written in MATLAB
 1. CELLSIZE: セルの一辺の長さ [度]（単位はUTMを用いて変更可能）
 1. utm: 0: 緯度経度, 1: メートル
 1. NODATA: NODATAを示す値
-1. NODATA: NODATAを示す値
+1. zs: 地表の標高
+1. flowAcc: 集水面積
+1. flowDir: 流向
 1. land: 土地利用
+2. 1. dx: セルの横方向の長さ[m]
+1. dy: セルの縦方向の長さ[m]
+1. len: セルの対角線長( =sqrt(dx*dy) )
+1. area: セルの面積( = dx*dy )
 
 ## 名前変更した変数
 1. area -> cellarea (230413, RRI_Sub)
