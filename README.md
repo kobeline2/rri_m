@@ -7,6 +7,18 @@ RRI model written in MATLAB
 1. lasth: 計算時間 [hour]
 1. dt: time step [sec]
 1. dt_riv: time step for river[sec]
+1. ns_river: 河川の粗度係数
+1. num_of_landuse: 土地利用の種類数
+#### 土地利用ごとに定めるパラメータ
+dif: 1:拡散波近似，0:kinematic
+ns_slope: 斜面の粗度係数 
+soildepth: 土層厚
+gammaa: 間隙率
+ksv: 鉛直方向の透水係数
+faif: 湿潤前線における吸引圧
+ka: 水平方向の透水係数
+gammam: 不飽和間隙率
+beta: パラメータ(大空隙の飽和透水係数とマトリックス部の飽和透水係数の比)
 
 ## パラメタに関するメモ: RRI_Sub
 1. maxt: 計算回数 [-]
