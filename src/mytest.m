@@ -166,6 +166,7 @@ hr_idx = zeros(riv_count, 1);        % rivセルの水深
 vr_idx = zeros(riv_count, 1);        % rivセルの流量
 
 qs_ave_temp_idx = zeros(i4, slo_count);
+qs_idx = zeros(i4, slo_count);
 hs_idx = zeros(slo_count, 1);        % sloセルの水深
 qp_t_idx = zeros(slo_count, 1);      % sloセルの降水量
 
@@ -238,9 +239,20 @@ out_dt = max(1, out_dt);
 out_next = round(out_dt);
 TT = 0;
 
-maxt = 2; % practice
+maxt = 50; % practice
+% preparation for PK
+load_paramRK
+funcr_vr4RK = @(vr_idx, qr_idx, hr_idx) ...
+        Funcr(vr_idx, qr_idx, hr_idx, cellarea, area_ratio_idx, riv_count,...
+        domain_riv_idx, zb_riv_idx, dif_riv_idx, dis_riv_idx, down_riv_idx, width_idx, ns_river);
+funcr_hs4RK = @(qs_idx, hs_idx) ...
+        Funcs(qs_idx, hs_idx, qp_t_idx, slo_count, zb_slo_idx, ns_slo_idx, ka_idx,...
+        dis_slo_idx, dis_slo_1d_idx, down_slo_idx, down_slo_1d_idx, len_slo_idx, len_slo_1d_idx,...
+        da_idx, dm_idx, beta_idx, dif_slo_idx, soildepth_idx, gammaa_idx, lmax, cellarea);
+
+
 for T = 1:maxt
-    if mod(T,1)==0; fprintf("%d/%d\n", T, maxt); end
+    if mod(T,10)==0; fprintf("%d/%d\n", T, maxt); end
 
 %%%-------------------------- RIVER CALCULATION ------------------------%%%
     % if rivThresh < 0 go to 2
@@ -267,51 +279,11 @@ for T = 1:maxt
     %%%% boundary condition
     
     qr_ave_temp_idx = zeros(riv_count, 1);
-
-    % % Adaptive Runge-Kutta
-    % % (1)
-    fr = Funcr(vr_idx, qr_idx, hr_idx, cellarea, area_ratio_idx, riv_count, domain_riv_idx,...
-        zb_riv_idx, dif_riv_idx, dis_riv_idx, down_riv_idx, width_idx, ns_river);   
-    vr_temp = vr_idx + b21 * ddt * fr;
-    vr_temp(vr_temp<0) = 0;
-    qr_ave_temp_idx = qr_ave_temp_idx + qr_idx * ddt;
     
-    % % (2)
-    kr2 = Funcr(vr_idx, qr_idx, hr_idx, cellarea, area_ratio_idx, riv_count, domain_riv_idx,...
-        zb_riv_idx, dif_riv_idx, dis_riv_idx, down_riv_idx, width_idx, ns_river);
-    vr_temp = vr_idx + ddt * (b31 * fr + b32 * kr2);
-    vr_temp(vr_temp<0) = 0;
-    qr_ave_temp_idx = qr_ave_temp_idx + qr_idx * ddt;
-    % 
-    % % (3)
-    kr3 = Funcr(vr_idx, qr_idx, hr_idx, cellarea, area_ratio_idx, riv_count, domain_riv_idx,...
-        zb_riv_idx, dif_riv_idx, dis_riv_idx, down_riv_idx, width_idx, ns_river);
-    vr_temp = vr_idx + ddt * (b41 * fr + b42 * kr2 + b43 * kr3);
-    vr_temp(vr_temp<0) = 0;
-    qr_ave_temp_idx = qr_ave_temp_idx + qr_idx * ddt;
-    % 
-    % % (4)
-    kr4 = Funcr(vr_idx, qr_idx, hr_idx, cellarea, area_ratio_idx, riv_count, domain_riv_idx,...
-        zb_riv_idx, dif_riv_idx, dis_riv_idx, down_riv_idx, width_idx, ns_river);
-    vr_temp = vr_idx + ddt * (b51 * fr + b52 * kr2 + b53 * kr3 + b54 * kr4);
-    vr_temp(vr_temp<0) = 0;
-    qr_ave_temp_idx = qr_ave_temp_idx + qr_idx * ddt;
-    % 
-    % % (5)
-    kr5 = Funcr(vr_idx, qr_idx, hr_idx, cellarea, area_ratio_idx, riv_count, domain_riv_idx,...
-        zb_riv_idx, dif_riv_idx, dis_riv_idx, down_riv_idx, width_idx, ns_river);
-    vr_temp = vr_idx + ddt * (b61 * fr + b62 * kr2 + b63 * kr3 + b64 * kr4 + b65 * kr5);
-    vr_temp(vr_temp<0) = 0;
-    qr_ave_temp_idx = qr_ave_temp_idx + qr_idx * ddt;
-    % 
-    % % (6)
-    kr6 = Funcr(vr_idx, qr_idx, hr_idx, cellarea, area_ratio_idx, riv_count, domain_riv_idx,...
-        zb_riv_idx, dif_riv_idx, dis_riv_idx, down_riv_idx, width_idx, ns_river); 
-    vr_temp = vr_idx + ddt * (c1 * fr + c3 * kr3 + c4 * kr4 + c6 * kr6);
-    vr_temp(vr_temp<0) = 0;
-    qr_ave_temp_idx = qr_ave_temp_idx + qr_idx * ddt;
-    
-    vr_err = ddt * (dc1 * fr + dc3 * kr3 + dc4 * kr4 + dc5 * kr5 + dc6 * kr6);
+    % % % Adaptive Runge-Kutta
+       
+    [vr_err, vr_temp] = ...
+        adaptiveRKvr(ddt, qr_ave_temp_idx, ParamRK, vr_idx, qr_idx, hr_idx, funcr_vr4RK);
 
     hr_err = vr_err / (cellarea * area_ratio_idx);
     hr_err(domain_riv_idx==0) = 0;
@@ -336,7 +308,7 @@ for T = 1:maxt
 
     ddt = dt;
     ddt_chk_slo = dt;
-    
+
 %     qs_ave = zeros(NX,NY);
 %     qs_ave_idx = zeros(slo_count,1);
 
@@ -344,7 +316,7 @@ for T = 1:maxt
 %     gampt_ff_idx
 
     if time + ddt > T * dt; ddt = T * dt - time; end
-    
+
     % rainfall 
     itemp = -1;
     for jtemp = 1:tt_max_rain
@@ -359,68 +331,19 @@ for T = 1:maxt
         end
     end
     qp_t_idx = sub_slo_ij2idx(qp_t, qp_t_idx, slo_count, slo_idx2i, slo_idx2j);
-    
+
     %%%% boundary condition
-    
-    
+
+
     %%%%%%%%%%%%%%%%%% ------------- Funcs
 
-    % % Adaptive Runge-Kutta
-    % % (1)
-    fs = Funcs(qs_idx, hs_idx, qp_t_idx, slo_count, zb_slo_idx, ns_slo_idx, ka_idx,...
-        dis_slo_idx, dis_slo_1d_idx, down_slo_idx, down_slo_1d_idx, len_slo_idx, len_slo_1d_idx,...
-        da_idx, dm_idx, beta_idx, dif_slo_idx, soildepth_idx, gammaa_idx, lmax, cellarea);   
-    hs_temp = hs_idx + b21 * ddt * fs;
-    hs_temp(hs_temp<0) = 0;
-    qs_ave_temp_idx = qs_ave_temp_idx + qs_idx * ddt;
-    
-    % % (2)
-    ks2 = Funcs(qs_idx, hs_idx, qp_t_idx, slo_count, zb_slo_idx, ns_slo_idx, ka_idx,...
-        dis_slo_idx, dis_slo_1d_idx, down_slo_idx, down_slo_1d_idx, len_slo_idx, len_slo_1d_idx,...
-        da_idx, dm_idx, beta_idx, dif_slo_idx, soildepth_idx, gammaa_idx, lmax, cellarea);
-    hs_temp = hs_idx + ddt * (b31 * fs + b32 * ks2);
-    hs_temp(hs_temp<0) = 0;
-    qs_ave_temp_idx = qs_ave_temp_idx + qs_idx * ddt;
-    % 
-    % % (3)
-    ks3 = Funcs(qs_idx, hs_idx, qp_t_idx, slo_count, zb_slo_idx, ns_slo_idx, ka_idx,...
-        dis_slo_idx, dis_slo_1d_idx, down_slo_idx, down_slo_1d_idx, len_slo_idx, len_slo_1d_idx,...
-        da_idx, dm_idx, beta_idx, dif_slo_idx, soildepth_idx, gammaa_idx, lmax, cellarea);
-    hs_temp = hs_idx + ddt * (b41 * fs + b42 * ks2 + b43 * ks3);
-    hs_temp(hs_temp<0) = 0;
-    qs_ave_temp_idx = qs_ave_temp_idx + qs_idx * ddt;
-    % 
-    % % (4)
-    ks4 = Funcs(qs_idx, hs_idx, qp_t_idx, slo_count, zb_slo_idx, ns_slo_idx, ka_idx,...
-        dis_slo_idx, dis_slo_1d_idx, down_slo_idx, down_slo_1d_idx, len_slo_idx, len_slo_1d_idx,...
-        da_idx, dm_idx, beta_idx, dif_slo_idx, soildepth_idx, gammaa_idx, lmax, cellarea);
-    hs_temp = hs_idx + ddt * (b51 * fs + b52 * ks2 + b53 * ks3 + b54 * ks4);
-    hs_temp(hs_temp<0) = 0;
-    qs_ave_temp_idx = qs_ave_temp_idx + qs_idx * ddt;
-    % 
-    % % (5)
-    ks5 = Funcs(qs_idx, hs_idx, qp_t_idx, slo_count, zb_slo_idx, ns_slo_idx, ka_idx,...
-        dis_slo_idx, dis_slo_1d_idx, down_slo_idx, down_slo_1d_idx, len_slo_idx, len_slo_1d_idx,...
-        da_idx, dm_idx, beta_idx, dif_slo_idx, soildepth_idx, gammaa_idx, lmax, cellarea);
-    hs_temp = hs_idx + ddt * (b61 * fs + b62 * ks2 + b63 * ks3 + b64 * ks4 + b65 * ks5);
-    hs_temp(hs_temp<0) = 0;
-    qs_ave_temp_idx = qs_ave_temp_idx + qs_idx * ddt;
-    % 
-    % % (6)
-    ks6 = Funcs(qs_idx, hs_idx, qp_t_idx, slo_count, zb_slo_idx, ns_slo_idx, ka_idx,...
-        dis_slo_idx, dis_slo_1d_idx, down_slo_idx, down_slo_1d_idx, len_slo_idx, len_slo_1d_idx,...
-        da_idx, dm_idx, beta_idx, dif_slo_idx, soildepth_idx, gammaa_idx, lmax, cellarea);
-    hs_temp = hs_idx + ddt * (c1 * fs + c3 * ks3 + c4 * ks4 + c6 * ks6);
-    hs_temp(hs_temp<0) = 0;
-    qs_ave_temp_idx = qs_ave_temp_idx + qs_idx * ddt;
-    
-    hs_err = ddt * (dc1 * fr + dc3 * kr3 + dc4 * kr4 + dc5 * kr5 + dc6 * kr6);
+    % % % Adaptive Runge-Kutta
+    [hs_err, hs_temp] = ...
+        adaptive_RKhs(ddt, qs_ave_temp_idx, ParamRK, qs_idx, hs_idx, funcr_hs4RK);
+
     hs_err(domain_slo_idx==0) = 0;
     [errmax, errmax_loc] =  max(hs_err, [], 'all');
     errmax = errmax / eps;
-
-
-
 end
 
 toc
