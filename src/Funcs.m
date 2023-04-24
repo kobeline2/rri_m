@@ -1,7 +1,7 @@
-%% subroutine funcs(hs_idx, qp_t_idx, fs_idx, qs_idx )
-
-fs_idx = zeros(slo_count, 1);
-qs_idx = zeros(i4, slo_count);
+% subroutine funcs(hs_idx, qp_t_idx, fs_idx, qs_idx )
+function fs_idx = Funcs(qs_idx, hs_idx, qp_t_idx, slo_count, zb_slo_idx, ns_slo_idx, ka_idx,...
+    dis_slo_idx, dis_slo_1d_idx, down_slo_idx, down_slo_1d_idx, len_slo_idx, len_slo_1d_idx,...
+    da_idx, dm_idx, beta_idx, dif_slo_idx, soildepth_idx, gammaa_idx, lmax, area)
 
 % qs_calc(hs_idx, qs_idx)
 % lateral discharge (slope)
@@ -193,3 +193,6 @@ end
 % end
 % 
 % end
+
+
+end
