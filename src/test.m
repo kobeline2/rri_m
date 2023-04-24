@@ -165,6 +165,7 @@ qr_idx = zeros(riv_count, 1);        %
 hr_idx = zeros(riv_count, 1);        % rivセルの水深
 vr_idx = zeros(riv_count, 1);        % rivセルの流量
 
+qs_ave_temp_idx = zeros(i4, slo_count);
 hs_idx = zeros(slo_count, 1);        % sloセルの水深
 qp_t_idx = zeros(slo_count, 1);      % sloセルの降水量
 
@@ -313,5 +314,113 @@ for T = 1:maxt
     vr_err = ddt * (dc1 * fr + dc3 * kr3 + dc4 * kr4 + dc5 * kr5 + dc6 * kr6);
 
     hr_err = vr_err / (cellarea * area_ratio_idx);
+    hr_err(domain_riv_idx==0) = 0;
+    [errmax, errmax_loc] =  max(hr_err, [], 'all');
+    errmax = errmax / eps;
+    
+    if errmax > 1 && ddt > ddt_min_riv
+        ddt = max( safety * ddt * (errmax ^ pshrnk), 0.5 * ddt );
+        ddt = max( ddt, ddt_min_riv ); 
+        ddt_chk_riv = ddt;
+        disp(["shrink (riv): ", ddt, errmax, errmax_loc ])
+        if ddt==0; error('stepsize underflow'); end  
+    end
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 要編集 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+%%%-------------------------- SLOPE CALCULATION ------------------------%%%
+
+    time = (T - 1) * dt;
+
+    ddt = dt;
+    ddt_chk_slo = dt;
+    
+%     qs_ave = zeros(NX,NY);
+%     qs_ave_idx = zeros(slo_count,1);
+
+    hs_idx = sub_slo_ij2idx(hs, hs_idx, slo_count, slo_idx2i, slo_idx2j);
+%     gampt_ff_idx
+
+    if time + ddt > T * dt; ddt = T * dt - time; end
+    
+    % rainfall 
+    itemp = -1;
+    for jtemp = 1:tt_max_rain
+        if t_rain(jtemp) < (time + ddt) && (time + ddt) <= t_rain(jtemp+1); itemp = jtemp; end
+    end
+    for J = 1:NY
+        if itemp<= 0; continue; end  % バグ回避のため追加
+        if rain_i(J) < 1 || rain_i(J) > ny_rain; continue; end
+        for I = 1:NX
+            if rain_j(I) < 1 || rain_j(I) > nx_rain; continue; end
+            qp_t(I, J) = qp(rain_j(I), rain_i(J), itemp);
+        end
+    end
+    qp_t_idx = sub_slo_ij2idx(qp_t, qp_t_idx, slo_count, slo_idx2i, slo_idx2j);
+    
+    %%%% boundary condition
+    
+    
+    %%%%%%%%%%%%%%%%%% ------------- Funcs
+
+    % % Adaptive Runge-Kutta
+    % % (1)
+    fs = Funcs(qs_idx, hs_idx, qp_t_idx, slo_count, zb_slo_idx, ns_slo_idx, ka_idx,...
+        dis_slo_idx, dis_slo_1d_idx, down_slo_idx, down_slo_1d_idx, len_slo_idx, len_slo_1d_idx,...
+        da_idx, dm_idx, beta_idx, dif_slo_idx, soildepth_idx, gammaa_idx, lmax, cellarea);   
+    hs_temp = hs_idx + b21 * ddt * fs;
+    hs_temp(hs_temp<0) = 0;
+    qs_ave_temp_idx = qs_ave_temp_idx + qs_idx * ddt;
+    
+    % % (2)
+    ks2 = Funcs(qs_idx, hs_idx, qp_t_idx, slo_count, zb_slo_idx, ns_slo_idx, ka_idx,...
+        dis_slo_idx, dis_slo_1d_idx, down_slo_idx, down_slo_1d_idx, len_slo_idx, len_slo_1d_idx,...
+        da_idx, dm_idx, beta_idx, dif_slo_idx, soildepth_idx, gammaa_idx, lmax, cellarea);
+    hs_temp = hs_idx + ddt * (b31 * fs + b32 * ks2);
+    hs_temp(hs_temp<0) = 0;
+    qs_ave_temp_idx = qs_ave_temp_idx + qs_idx * ddt;
+    % 
+    % % (3)
+    ks3 = Funcs(qs_idx, hs_idx, qp_t_idx, slo_count, zb_slo_idx, ns_slo_idx, ka_idx,...
+        dis_slo_idx, dis_slo_1d_idx, down_slo_idx, down_slo_1d_idx, len_slo_idx, len_slo_1d_idx,...
+        da_idx, dm_idx, beta_idx, dif_slo_idx, soildepth_idx, gammaa_idx, lmax, cellarea);
+    hs_temp = hs_idx + ddt * (b41 * fs + b42 * ks2 + b43 * ks3);
+    hs_temp(hs_temp<0) = 0;
+    qs_ave_temp_idx = qs_ave_temp_idx + qs_idx * ddt;
+    % 
+    % % (4)
+    ks4 = Funcs(qs_idx, hs_idx, qp_t_idx, slo_count, zb_slo_idx, ns_slo_idx, ka_idx,...
+        dis_slo_idx, dis_slo_1d_idx, down_slo_idx, down_slo_1d_idx, len_slo_idx, len_slo_1d_idx,...
+        da_idx, dm_idx, beta_idx, dif_slo_idx, soildepth_idx, gammaa_idx, lmax, cellarea);
+    hs_temp = hs_idx + ddt * (b51 * fs + b52 * ks2 + b53 * ks3 + b54 * ks4);
+    hs_temp(hs_temp<0) = 0;
+    qs_ave_temp_idx = qs_ave_temp_idx + qs_idx * ddt;
+    % 
+    % % (5)
+    ks5 = Funcs(qs_idx, hs_idx, qp_t_idx, slo_count, zb_slo_idx, ns_slo_idx, ka_idx,...
+        dis_slo_idx, dis_slo_1d_idx, down_slo_idx, down_slo_1d_idx, len_slo_idx, len_slo_1d_idx,...
+        da_idx, dm_idx, beta_idx, dif_slo_idx, soildepth_idx, gammaa_idx, lmax, cellarea);
+    hs_temp = hs_idx + ddt * (b61 * fs + b62 * ks2 + b63 * ks3 + b64 * ks4 + b65 * ks5);
+    hs_temp(hs_temp<0) = 0;
+    qs_ave_temp_idx = qs_ave_temp_idx + qs_idx * ddt;
+    % 
+    % % (6)
+    ks6 = Funcs(qs_idx, hs_idx, qp_t_idx, slo_count, zb_slo_idx, ns_slo_idx, ka_idx,...
+        dis_slo_idx, dis_slo_1d_idx, down_slo_idx, down_slo_1d_idx, len_slo_idx, len_slo_1d_idx,...
+        da_idx, dm_idx, beta_idx, dif_slo_idx, soildepth_idx, gammaa_idx, lmax, cellarea);
+    hs_temp = hs_idx + ddt * (c1 * fs + c3 * ks3 + c4 * ks4 + c6 * ks6);
+    hs_temp(hs_temp<0) = 0;
+    qs_ave_temp_idx = qs_ave_temp_idx + qs_idx * ddt;
+    
+    hs_err = ddt * (dc1 * fr + dc3 * kr3 + dc4 * kr4 + dc5 * kr5 + dc6 * kr6);
+    hs_err(domain_slo_idx==0) = 0;
+    [errmax, errmax_loc] =  max(hs_err, [], 'all');
+    errmax = errmax / eps;
+
+
 
 end
+
+toc
