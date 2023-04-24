@@ -89,7 +89,7 @@ depth_idx             = depth(domAndRiv);         % 河道深さ
 height_idx            = leveeHeight(domAndRiv);   % 堤防高
 area_ratio_idx        = area_ratio(domAndRiv);    % セルにおける河川の割合
 zb_riv_idx            = zb_riv(domAndRiv);        % 不透水層の標高
-dif_riv_idx           = dif(land(domAndRiv))';    % 1:拡散波近似，2:kinematic
+dif_riv_idx           = dif(land(domAndRiv))';    % 1:拡散波近似，0:kinematic
 % RRI_Input.txtで指定する土地利用ごとのパラメータを縦ベクトルに統一するため転置する(Sloも同様)
 % sec_map_idx           = sec_map(domAndRiv);     % 
 len_riv_idx           = len_riv(domAndRiv);       % 河川の長さ
@@ -109,7 +109,7 @@ zb_slo_idx            = zb(domAndSlo);            % 不透水層の標高
 acc_slo_idx           = flowAcc(domAndSlo);       % 集水面積
 land_idx              = land(domAndSlo);          % 土地利用
 
-dif_slo_idx      = dif(land(domAndSlo))';         % 1:拡散波近似，2:kinematic
+dif_slo_idx      = dif(land(domAndSlo))';         % 1:拡散波近似，0:kinematic
 ns_slo_idx       = ns_slope(land(domAndSlo))';    % 粗度係数
 soildepth_idx    = soildepth(land(domAndSlo))';   % 土層厚
 gammaa_idx       = gammaa(land(domAndSlo))';      % 間隙率
@@ -251,7 +251,8 @@ for T = 1:maxt
     qr_ave_idx = zeros(riv_count, 1);
 %     if dam_switch == 1; dam_vol_temp(:) = 0;end
     
-    hr_idx = sub_riv_ij2idx(hr, hr_idx, riv_count, riv_idx2i, riv_idx2j);
+    hr_idx = hr(domAndRiv);
+%     hr_idx = sub_riv_ij2idx(hr, hr_idx, riv_count, riv_idx2i, riv_idx2j);
     
     for K = 1:riv_count
         vr_idx(K) = hr2vr(hr_idx(K), K, cellarea, area_ratio_idx(K));  % Kは不要になりそう

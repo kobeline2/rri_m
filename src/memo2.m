@@ -1,21 +1,31 @@
-%% hr2vr（改良）
+%% ルンゲクッタのパラメータ
+a2 = 0.2;
+a3 = 0.3;
+a4 = 0.6;
+a5 = 1.0;
+a6 = 0.875;
+b21 = 0.2;
+b31 = 3/40;
+b32 = 9/40;
+b41 = 0.3;
+b42 = -0.9;
+b43 = 1.2;
+b51 = - 11/54;
+b52 = 2.5;
+b53 = - 70/27;
+b54 = 35/27;
+b61 = 1631/55296;
+b62 = 175/512;
+b63 = 575/13824;
+b64 = 44275/110592;
+b65 = 253/4096;
+c1 = 37/378;
+c3 = 250/621;
+c4 = 125/594;
+c6 = 512/1771;
+dc1 = c1 - 2825/27648;
+dc3 = c3 - 18575/48384;
+dc4 = c4 - 13525/55296;
+dc5 = - 277/14336;
+dc6 = c6 - 0.25;
 
-% for K = 1:riv_count
-%     vr_idx(K) = hr2vr_new(hr_idx(K), K, area, area_ratio_idx(K));  % Kは不要になりそう
-% end
-vr_idx = hr2vr_new(hr_idx, area, area_ratio_idx);
-
-function vr = hr2vr_new(hr, area, area_ratio_idx)  % calculating vr[m^3] by using hr[m]
-
-riv_count = 1484;
-sec_map_idx = zeros(riv_count, 1); % 後で削除
-id = (sec_map_idx > 0);
-
-vr = hr * area .* area_ratio_idx;
-
-% if id <= 0
-%  vr = hr * area * area_ratio_idx; 
-% else
-% end
-
-end
