@@ -405,17 +405,18 @@ for T = 1:maxt
             %%%% embankment
             
             %  water coming in or going out?
+            opts = odeset('AbsTol',1e-3);
             if dh >= 0
                 % going out
             h = hs_p;
             if zb_p < zb_n; h = max(0, zb_p + hs_p - zb_n); end
-            [t,h]=ode45(@(t,h) odefun_s(t, h, dh, ns_p, ka_p, da_p, dm_p, b_p, len, cellarea),[time time+ddt],h);
+            [t,h]=ode45(@(t,h) odefun_s(t, h, dh, ns_p, ka_p, da_p, dm_p, b_p, len, cellarea),[time time+ddt],h,opts);
             qs_idx(L,K) = h(end);
             else
             % coming in
             h = hs_n;
             if zb_n < zb_p; h = max(0, zb_n + hs_n - zb_p); end
-            [t,h]=ode45(@(t,h) odefun_s(t, h, abs(dh), ns_p, ka_p, da_p, dm_p, b_p, len, cellarea),[time time+ddt],h);
+            [t,h]=ode45(@(t,h) odefun_s(t, h, abs(dh), ns_p, ka_p, da_p, dm_p, b_p, len, cellarea),[time time+ddt],h,opts);
             qs_idx(L,K) = -h(end);
             end
         end

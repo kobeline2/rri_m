@@ -1,7 +1,7 @@
-%% subroutine funcr( vr_idx, fr_idx, qr_idx )
+% subroutine funcr( vr_idx, fr_idx, qr_idx )
+function fr_idx = Funcr(vr_idx, qr_idx, hr_idx, area, area_ratio_idx, riv_count, domain_riv_idx,...
+    zb_riv_idx, dif_riv_idx, dis_riv_idx, down_riv_idx, width_idx, ns_river)
 
-fr_idx = zeros(riv_count, 1);
-qr_idx = zeros(riv_count, 1);
 qr_sum_idx = zeros(riv_count, 1);
 qr_div_idx = zeros(riv_count, 1);
 
@@ -25,7 +25,6 @@ end
 %%
 
 %%%------------qr_calc(hr_idx, qr_idx)----------------%%%
-qr_idx = zeros(riv_count, 1);
 qr_div_idx = zeros(riv_count, 1);
 
 %$omp parallel do private(kk,zb_p,hr_p,distance,zb_n,hr_n,dh,hw,qr_temp)
@@ -251,3 +250,5 @@ fr_idx = - qr_sum_idx; % modified v1.4
 % if( sec_map_idx(k) .gt. 0 ) then
 %  call sec_hq_riv(h, dh, k, q)
 % end
+
+end
