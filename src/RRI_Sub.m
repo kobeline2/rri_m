@@ -251,7 +251,8 @@ for T = 1:maxt
     qr_ave_idx = zeros(riv_count, 1);
 %     if dam_switch == 1; dam_vol_temp(:) = 0;end
     
-    hr_idx = sub_riv_ij2idx(hr, hr_idx, riv_count, riv_idx2i, riv_idx2j);
+    hr_idx = hr(domAndRiv);
+%     hr_idx = sub_riv_ij2idx(hr, hr_idx, riv_count, riv_idx2i, riv_idx2j);
     
     for K = 1:riv_count
         vr_idx(K) = hr2vr(hr_idx(K), K, cellarea, area_ratio_idx(K));  % Kは不要になりそう
