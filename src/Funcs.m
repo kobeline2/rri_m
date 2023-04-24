@@ -69,13 +69,12 @@ for K = 1:slo_count
             % if emb > 0; hw = max(hs_n - emb, 0); end
             dh = abs(dh);
             if zb_n < zb_p; hw = max(0, zb_n + hs_n - zb_p); end
-            qs_idx(L,K) =  - hq(ns_p, ka_p, da_p, dm_p, b_p, hw, dh, len, area);
+            qs_idx(L,K) =  - hq(ns_n, ka_n, da_n, dm_n, b_n, hw, dh, len, area);
         end
 
     end
 end
 %$omp end parallel do
-% end subroutine qs_calc
 
 % boundary condition for slope (discharge boundary)
 % if bound_slo_disc_switch >= 1 
@@ -117,9 +116,15 @@ end
 
 %$omp parallel do
 % for K = 1:slo_count
-%  fs_idx(K) = qp_t_idx(K) - (qs_idx(1,K) + qs_idx(2,K) + qs_idx(3,K) + qs_idx(4,K));
+%     fs_idx(K) = qp_t_idx(K) - (qs_idx(1,K) + qs_idx(2,K) + qs_idx(3,K) + qs_idx(4,K));
 % end
+
+
+% disp(sum(qs_idx, 'all'))
+
 fs_idx = qp_t_idx - sum(qs_idx,1)';
+% disp(sum(fs_idx))
+
 %$omp end parallel do
 
 for K = 1:slo_count
@@ -131,25 +136,5 @@ for K = 1:slo_count
     fs_idx(KK) = fs_idx(KK) + qs_idx(L, K);
     end
 end
-
-% end subroutine funcs
-
-
-% water depth (h) to actual water level (lev)
-% function lev = h2lev(h, soildepth, gammaa)
-% 
-% da_temp = soildepth * gammaa;
-% 
-% if soildepth == 0
-%     lev = h;
-% elseif h >= da_temp  % including da = 0
-%     lev = soildepth + (h - da_temp); % surface water
-% else
-%     if soildepth > 0; rho = da_temp / soildepth; end
-%     lev = h / rho;
-% end
-% 
-% end
-
 
 end

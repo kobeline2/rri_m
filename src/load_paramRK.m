@@ -28,3 +28,12 @@ ParamRK.dc3 = ParamRK.c3 - 18575/48384;
 ParamRK.dc4 = ParamRK.c4 - 13525/55296;
 ParamRK.dc5 = -277/14336;
 ParamRK.dc6 = ParamRK.c6 - 0.25;
+
+% その他のパラメータ
+safety = 0.9;
+pgrow = -0.2;
+pshrnk = -0.25;
+errcon = 1.89e-4;
+eps = 0.01;
+ddt_min_riv = 0.1;
+ddt_min_slo = 1.0;
