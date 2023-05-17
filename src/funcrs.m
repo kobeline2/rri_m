@@ -1,5 +1,5 @@
 function [hr, hs] = funcrs(hr, hs, NX, NY, domain, riv, height, depth, ...
-    riv_ij2idx, len_riv_idx, dt, area, area_ratio_idx)
+    riv_ij2idx, len_riv_idx, dt, area, area_ratio_idx, width_idx)
 % funcrs  calculating river-slope interactions
 % subroutine funcrs
 % [hr, hs] = funcrs(hr, hs, NX, NY, domain, riv, height, depth, ...
@@ -118,7 +118,7 @@ for I = 1:NX
             end    
         
             if hrs > (hs_top - height(I,J))
-                hrs = hs - height(I,J);
+                hrs = hs(I,J) - height(I,J);
             end
             qrs(I,J) = hrs;
         

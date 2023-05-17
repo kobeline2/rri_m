@@ -1,6 +1,6 @@
 % subroutine funcr( vr_idx, fr_idx, qr_idx )
-function fr_idx = Funcr(vr_idx, qr_idx, hr_idx, area, area_ratio_idx, riv_count, domain_riv_idx,...
-    zb_riv_idx, dif_riv_idx, dis_riv_idx, down_riv_idx, width_idx, ns_river)
+function [fr_idx, vr_idx, qr_idx] = Funcr(vr_idx, qr_idx, hr_idx, area, area_ratio_idx, riv_count, ...
+    domain_riv_idx, zb_riv_idx, dif_riv_idx, dis_riv_idx, down_riv_idx, width_idx, ns_river)
 
 qr_sum_idx = zeros(riv_count, 1);
 qr_div_idx = zeros(riv_count, 1);
@@ -138,12 +138,12 @@ end
 
 % qr_sum > 0 --> discharge flowing out from a cell
 for K = 1:riv_count
- % outflow from (k)
- qr_sum_idx(K) = qr_sum_idx(K) + qr_idx(K);
- KK = down_riv_idx(K);
- if domain_riv_idx(KK)==0; continue; end
- % qr_sum minus (flowing into) discharge at the destination cell
- qr_sum_idx(KK) = qr_sum_idx(KK) - qr_idx(K);
+    % outflow from (k)
+    qr_sum_idx(K) = qr_sum_idx(K) + qr_idx(K);
+    KK = down_riv_idx(K);
+    if domain_riv_idx(KK)==0; continue; end
+    % qr_sum minus (flowing into) discharge at the destination cell
+    qr_sum_idx(KK) = qr_sum_idx(KK) - qr_idx(K);
 end
 
 % diversion
@@ -163,6 +163,7 @@ end
 % (area_ratio = ratio of river area against total cell area)
 %fr_idx = -qr_sum_idx / area_ratio_idx
 fr_idx = - qr_sum_idx; % modified v1.4
+
 
 % end subroutine funcr
 % 

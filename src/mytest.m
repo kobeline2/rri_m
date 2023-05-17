@@ -1,4 +1,4 @@
-%% test Runge-Kutta
+%% RRI.f90
 
 tic
 
@@ -6,7 +6,7 @@ tic
 %%% STEP 0 : FILE NAME AND PARAMETER SETTING
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% RRI_Read.m を実行する
+RRI_Read
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% STEP 1 : FILE READING
@@ -166,6 +166,7 @@ hr_idx = zeros(riv_count, 1);        % rivセルの水深
 vr_idx = zeros(riv_count, 1);        % rivセルの流量
 
 qs_ave_temp_idx = zeros(i4, slo_count);
+qs_ave_idx = zeros(i4, slo_count);
 qs_idx = zeros(i4, slo_count);
 hs_idx = zeros(slo_count, 1);        % sloセルの水深
 qp_t_idx = zeros(slo_count, 1);      % sloセルの降水量
@@ -239,23 +240,22 @@ out_dt = max(1, out_dt);
 out_next = round(out_dt);
 TT = 0;
 
-maxt = 50; % practice
-% preparation for PK
+% preparation for RK
 load_paramRK
 funcr_vr4RK = @(vr_idx, qr_idx, hr_idx) ...
         Funcr(vr_idx, qr_idx, hr_idx, cellarea, area_ratio_idx, riv_count,...
         domain_riv_idx, zb_riv_idx, dif_riv_idx, dis_riv_idx, down_riv_idx, width_idx, ns_river);
-funcr_hs4RK = @(qs_idx, hs_idx) ...
+funcr_hs4RK = @(qs_idx, hs_idx, qp_t_idx) ...
         Funcs(qs_idx, hs_idx, qp_t_idx, slo_count, zb_slo_idx, ns_slo_idx, ka_idx,...
         dis_slo_idx, dis_slo_1d_idx, down_slo_idx, down_slo_1d_idx, len_slo_idx, len_slo_1d_idx,...
         da_idx, dm_idx, beta_idx, dif_slo_idx, soildepth_idx, gammaa_idx, lmax, cellarea);
 
-
+errmax = 10;
+maxt = 36; % practice
 for T = 1:maxt
-    if mod(T,10)==0; fprintf("%d/%d\n", T, maxt); end
+    if mod(T,1)==0; fprintf("%d/%d\n", T, maxt); end
 
 %%%-------------------------- RIVER CALCULATION ------------------------%%%
-    % if rivThresh < 0 go to 2
     
     time = (T - 1) * dt; 
     % time step is initially set to be "dt_riv"
@@ -264,86 +264,179 @@ for T = 1:maxt
     
     qr_ave = zeros(NX,NY);
     qr_ave_idx = zeros(riv_count, 1);
-%     if dam_switch == 1; dam_vol_temp(:) = 0;end
+    % if dam_switch == 1; dam_vol_temp(:) = 0;end
     
-    hr_idx = hr(domAndRiv);
-%     hr_idx = sub_riv_ij2idx(hr, hr_idx, riv_count, riv_idx2i, riv_idx2j);
+    hr_idx = hr(domAndRiv); % hr_idx = sub_riv_ij2idx(hr, hr_idx, riv_count, riv_idx2i, riv_idx2j);
     
     for K = 1:riv_count
         vr_idx(K) = hr2vr(hr_idx(K), K, cellarea, area_ratio_idx(K));  % Kは不要になりそう
     end
     
-    % "time + ddt" should be less than "t * dt"
-    if time + ddt > T * dt; ddt = T * dt - time; end
+    while true
+        if rivThresh < 0; break; end        % no river
+        % "time + ddt" should be less than "t * dt"
+        if time + ddt > T * dt; ddt = T * dt - time; end
+        
+        %%%% boundary condition
+        
+        qr_ave_temp_idx = zeros(riv_count, 1);
+        % % % Adaptive Runge-Kutta
+        [vr_err, vr_temp] = ...
+            adaptiveRKvr(ddt, qr_ave_temp_idx, ParamRK, vr_idx, qr_idx, hr_idx, funcr_vr4RK);
     
-    %%%% boundary condition
-    
-    qr_ave_temp_idx = zeros(riv_count, 1);
-    
-    % % % Adaptive Runge-Kutta
-       
-    [vr_err, vr_temp] = ...
-        adaptiveRKvr(ddt, qr_ave_temp_idx, ParamRK, vr_idx, qr_idx, hr_idx, funcr_vr4RK);
+        hr_err = vr_err / (cellarea * area_ratio_idx);
+        hr_err(domain_riv_idx==0) = 0;
+        [errmax, errmax_loc] =  max(hr_err, [], 'all');
 
-    hr_err = vr_err / (cellarea * area_ratio_idx);
-    hr_err(domain_riv_idx==0) = 0;
-    [errmax, errmax_loc] =  max(hr_err, [], 'all');
-    errmax = errmax / eps;
-    
-    if errmax > 1 && ddt > ddt_min_riv
-        ddt = max( safety * ddt * (errmax ^ pshrnk), 0.5 * ddt );
-        ddt = max( ddt, ddt_min_riv ); 
-        ddt_chk_riv = ddt;
-        disp(["shrink (riv): ", ddt, errmax, errmax_loc ])
-        if ddt==0; error('stepsize underflow'); end  
+        errmax = errmax / eps;
+        % disp([ddt,errmax])
+        
+        if errmax > 1 && ddt > ddt_min_riv
+            ddt = max( safety * ddt * (errmax ^ pshrnk), 0.5 * ddt );
+            ddt = max( ddt, ddt_min_riv ); 
+            ddt_chk_riv = ddt;
+            disp(["shrink (riv): ", ddt, errmax, slo_idx2i(errmax_loc), slo_idx2j(errmax_loc)])
+            if ddt==0; error('stepsize underflow'); end  
+        else
+            if ddt == ddt_min_riv
+                kr6 = funcr_vr4RK(vr_idx, qr_idx, hr_idx);
+                qr_ave_temp_idx = qr_ave_temp_idx + qr_idx * ddt * 6;
+            end
+            if time + ddt > T * dt; ddt = T * dt - time; end
+            time = time + ddt;
+            vr_idx = vr_temp;
+            qr_ave_idx = qr_ave_idx + qr_ave_temp_idx;             
+        end
+        if time >= T * dt; break; end
     end
+    qr_ave_idx = qr_ave_idx / dt / 6; 
 
+    for K = 1:riv_count
+        hr_idx(K) = vr2hr(vr_idx(K), K, cellarea, area_ratio_idx(K)); 
+    end    
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 要編集 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
+    hr(domAndRiv) = hr_idx; 
+    qr_ave(domAndRiv) = qr_ave_idx;
 
 %%%-------------------------- SLOPE CALCULATION ------------------------%%%
 
     time = (T - 1) * dt;
-
     ddt = dt;
     ddt_chk_slo = dt;
 
-%     qs_ave = zeros(NX,NY);
-%     qs_ave_idx = zeros(slo_count,1);
+    qs_ave = zeros(i4,NX,NY);
+    qs_ave_idx = zeros(i4, slo_count);
 
-    hs_idx = sub_slo_ij2idx(hs, hs_idx, slo_count, slo_idx2i, slo_idx2j);
-%     gampt_ff_idx
+    hs_idx = hs(domAndSlo);
+    gampt_ff_idx = gampt_ff(domAndSlo);
 
-    if time + ddt > T * dt; ddt = T * dt - time; end
+    while time < T * dt || (errmax > 1 && ddt > ddt_min_slo)
+        if time + ddt > T * dt; ddt = T * dt - time; end
+    
+        % rainfall 
+        itemp = -1;
+        for jtemp = 1:tt_max_rain
+            if t_rain(jtemp) < (time + ddt) && (time + ddt) <= t_rain(jtemp+1); itemp = jtemp; end
+        end
+        for J = 1:NY
+            if itemp<= 0; continue; end  % バグ回避のため追加
+            if rain_i(J) < 1 || rain_i(J) > ny_rain; continue; end
+            for I = 1:NX
+                if rain_j(I) < 1 || rain_j(I) > nx_rain; continue; end
+                qp_t(I, J) = qp(rain_j(I), rain_i(J), itemp);
+            end
+        end
+        qp_t_idx = qp_t(domAndSlo); 
+        
+        %%%% boundary condition
+    
+        qs_ave_temp_idx = zeros(i4, slo_count);
+        % % % Adaptive Runge-Kutta
+        [hs_err, hs_temp] = ...
+            adaptive_RKhs(ddt, qs_ave_temp_idx, ParamRK, qs_idx, hs_idx, qp_t_idx, funcr_hs4RK);
+    
+        hs_err(domain_slo_idx==0) = 0;
+        [errmax, errmax_loc] =  max(hs_err, [], 'all');
+        errmax = errmax / eps;
+    
+        if errmax > 1 && ddt > ddt_min_slo
+            ddt = max( safety * ddt * (errmax ^ pshrnk), 0.5 * ddt );
+            ddt = max( ddt, ddt_min_slo ); 
+            ddt_chk_slo = ddt;
+            disp(["shrink (slo): ", ddt, errmax, slo_idx2i(errmax_loc), slo_idx2j(errmax_loc)])
+            if ddt==0; error('stepsize underflow'); end  
+        else
+            if time + ddt > T * dt; ddt = T * dt - time; end
+            time = time + ddt;
+            hs_idx = hs_temp;
+            qs_ave_idx = qs_ave_idx + qs_ave_temp_idx;
+        end
 
-    % rainfall 
-    itemp = -1;
-    for jtemp = 1:tt_max_rain
-        if t_rain(jtemp) < (time + ddt) && (time + ddt) <= t_rain(jtemp+1); itemp = jtemp; end
+        % cumulative rainfall
+        rain_sum = sum(qp_t(domAndSlo)) * cellarea * numOfCell * ddt;
+        
+        if time >= T * dt; break; end
     end
-    for J = 1:NY
-        if itemp<= 0; continue; end  % バグ回避のため追加
-        if rain_i(J) < 1 || rain_i(J) > ny_rain; continue; end
-        for I = 1:NX
-            if rain_j(I) < 1 || rain_j(I) > nx_rain; continue; end
-            qp_t(I, J) = qp(rain_j(I), rain_i(J), itemp);
+    qs_ave_idx = qs_ave_idx / dt / 6;
+
+%%%-------------------------- GW CALCULATION ---------------------------%%%
+
+
+%%%-------------------------- GW Exfiltration  -------------------------%%%
+
+
+%%%-------------------------- Evapotranspiration  ----------------------%%%
+
+    
+    hs(domAndSlo) = hs_idx;
+
+
+%%%-------------------------- LEVEE BREAK  -----------------------------%%%
+% 使用しない
+
+%%%-------------------------- RIVER-SLOPE INTERACTION  -----------------%%%
+    
+    [hr, hs] = funcrs(hr, hs, NX, NY, domain, ...
+        riv, leveeHeight, depth, riv_ij2idx, len_riv_idx, dt, cellarea, area_ratio_idx, width_idx);
+    hr_idx = hr(domAndRiv);
+    hs_idx = hs(domAndSlo);
+
+%%%-------------------------- INFILTRATION (Green Ampt)  ---------------%%%
+    
+    hs_idx = infilt(hs_idx, gampt_f_idx, gampt_ff_idx, ksv_idx, faif_idx, gammaa_idx, infilt_limit_idx, dt, slo_count);
+    hs(domAndSlo) = hs_idx;
+    gampt_f(domAndSlo) = gampt_f_idx;
+    gampt_ff(domAndSlo) = gampt_ff_idx;
+
+%%%-------------------------- SET WATER DEPTH 0 AT DOMAIN = 2  ---------%%%
+    
+    % sout = sout + sum(hs(domain==2)) * cellarea;
+    % hs(domain==2) = 0;
+    for I = 1:NX
+        for J = 1:NY
+            if domain(I,J) == 2
+                sout = sout + hs(I,J) * cellarea;
+                hs(I,J) = 0;
+                if riv(I,J) == 1
+                    K = riv_ij2idx(I,J);
+                    vr_out = hr2vr(hr(I,J), K, cellarea, area_ratio_idx(K));
+                    sout = sout + vr_out;
+                    hr(I,J) = 0;
+                end
+            end
         end
     end
-    qp_t_idx = sub_slo_ij2idx(qp_t, qp_t_idx, slo_count, slo_idx2i, slo_idx2j);
 
-    %%%% boundary condition
+    hr_idx = hr(domAndRiv);
+    hs_idx = hs(domAndSlo);
+
+    [hr_max, hr_max_loc] = max(hr,[],'all');
+    [hs_max, hs_max_loc] = max(hs,[],'all');
+    disp(["max hr : ", hr_max, "loc : ", slo_idx2i(hr_max_loc), slo_idx2j(hr_max_loc) ])
+    disp(["max hs : ", hs_max, "loc : ", slo_idx2i(hs_max_loc), slo_idx2j(hs_max_loc) ])
+%%%-------------------------- OUTPUT -----------------------------------%%%
 
 
-    %%%%%%%%%%%%%%%%%% ------------- Funcs
-
-    % % % Adaptive Runge-Kutta
-    [hs_err, hs_temp] = ...
-        adaptive_RKhs(ddt, qs_ave_temp_idx, ParamRK, qs_idx, hs_idx, funcr_hs4RK);
-
-    hs_err(domain_slo_idx==0) = 0;
-    [errmax, errmax_loc] =  max(hs_err, [], 'all');
-    errmax = errmax / eps;
 end
 
 toc
