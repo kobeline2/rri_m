@@ -271,7 +271,6 @@ for T = 1:maxt
     for K = 1:riv_count
         vr_idx(K) = hr2vr(hr_idx(K), K, cellarea, area_ratio_idx(K));  % Kは不要になりそう
     end
-    
     while true
         if rivThresh < 0; break; end        % no river
         % "time + ddt" should be less than "t * dt"
@@ -430,8 +429,8 @@ for T = 1:maxt
     hr_idx = hr(domAndRiv);
     hs_idx = hs(domAndSlo);
 
-    [hr_max, hr_max_loc] = max(hr,[],'all');
-    [hs_max, hs_max_loc] = max(hs,[],'all');
+    [hr_max, hr_max_loc] = max(hr(domAndSlo),[],'all');
+    [hs_max, hs_max_loc] = max(hs(domAndSlo),[],'all');
     disp(["max hr : ", hr_max, "loc : ", slo_idx2i(hr_max_loc), slo_idx2j(hr_max_loc) ])
     disp(["max hs : ", hs_max, "loc : ", slo_idx2i(hs_max_loc), slo_idx2j(hs_max_loc) ])
 %%%-------------------------- OUTPUT -----------------------------------%%%
