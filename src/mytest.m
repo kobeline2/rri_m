@@ -284,7 +284,7 @@ for T = 1:maxt
         [vr_err, vr_temp] = ...
             adaptiveRKvr(ddt, qr_ave_temp_idx, ParamRK, vr_idx, qr_idx, hr_idx, funcr_vr4RK);
     
-        hr_err = vr_err / (cellarea * area_ratio_idx);
+        hr_err = vr_err ./ (cellarea * area_ratio_idx);
         hr_err(domain_riv_idx==0) = 0;
         [errmax, errmax_loc] =  max(hr_err, [], 'all');
 
