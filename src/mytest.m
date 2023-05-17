@@ -272,6 +272,8 @@ for T = 1:maxt
         vr_idx(K) = hr2vr(hr_idx(K), K, cellarea, area_ratio_idx(K));  % Kは不要になりそう
     end
     
+    if T==25; warning(" "); end
+    
     while true
         if rivThresh < 0; break; end        % no river
         % "time + ddt" should be less than "t * dt"
