@@ -152,10 +152,22 @@ hg(:,:) = -0.1;
 
 %%%-------------------------- div file ---------------------------------%%%
 
-df = readmatrix(location_file);
-for I = 1:size(df,1)
-    hydro_i(I) = df(I, 2); % Y座標(列番号)
-    hydro_j(I) = df(I, 3); % X座標(行番号)
+
+
+%%%-------------------------- hydro file -------------------------------%%%
+if hydro_switch == 1
+    df = readmatrix(location_file);
+    fID_1012 = fopen('../output/hydro.txt', 'w');
+    fID_1013 = fopen('../output/hydro_hr.txt', 'w');
+    format_1012 = "%10f";  % format of output (hydro.txt & hydro_hr.txt)
+    output_1012 = zeros(1, size(df,1));  % output of hydro.txt
+    output_1013 = zeros(1, size(df,1));  % output of hydro_hr.txt
+    for I = 1:size(df,1)
+        hydro_i(I) = df(I, 2); % Y座標(列番号)
+        hydro_j(I) = df(I, 3); % X座標(行番号)
+        format_1012 = append(format_1012, " %12f");
+    end
+    format_1012 = append(format_1012, " \n");
 end
 
 %%%-------------------------- array initialization ---------------------%%%
@@ -250,7 +262,7 @@ funcr_hs4RK = @(qs_idx, hs_idx, qp_t_idx) ...
         dis_slo_idx, dis_slo_1d_idx, down_slo_idx, down_slo_1d_idx, len_slo_idx, len_slo_1d_idx,...
         da_idx, dm_idx, beta_idx, dif_slo_idx, soildepth_idx, gammaa_idx, lmax, cellarea);
 
-maxt = 30; % practice
+maxt =30; % practice
 for T = 1:maxt
     if mod(T,1)==0; fprintf("%d/%d\n", T, maxt); end
 
@@ -434,8 +446,14 @@ for T = 1:maxt
     disp(["max hs : ", hs_max, "loc : ", slo_idx2i(hs_max_loc), slo_idx2j(hs_max_loc) ])
 %%%-------------------------- OUTPUT -----------------------------------%%%
 
-
-
+    if hydro_switch == 1 && mod(time, 3600) == 0 
+        for K = 1:size(output_1012,2)
+            output_1012(K) = qr_ave(hydro_j(K), hydro_i(K));  % hydro.txt
+            output_1013(K) = hr(hydro_j(K), hydro_i(K));      % hydro_hr.txt
+        end
+        fprintf( fID_1012, format_1012 ,time, output_1012);
+        fprintf( fID_1013, format_1012 ,time, output_1013);
+    end
 
 
 
