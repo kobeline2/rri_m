@@ -1,5 +1,5 @@
 % subroutine funcr( vr_idx, fr_idx, qr_idx )
-function [fr_idx, vr_idx, qr_idx] = Funcr(vr_idx, qr_idx, hr_idx, area, area_ratio_idx, riv_count, ...
+function [fr_idx, qr_idx] = Funcr(vr_idx, qr_idx, hr_idx, area, area_ratio_idx, riv_count, ...
     domain_riv_idx, zb_riv_idx, dif_riv_idx, dis_riv_idx, down_riv_idx, width_idx, ns_river)
 
 qr_sum_idx = zeros(riv_count, 1);

@@ -250,8 +250,7 @@ funcr_hs4RK = @(qs_idx, hs_idx, qp_t_idx) ...
         dis_slo_idx, dis_slo_1d_idx, down_slo_idx, down_slo_1d_idx, len_slo_idx, len_slo_1d_idx,...
         da_idx, dm_idx, beta_idx, dif_slo_idx, soildepth_idx, gammaa_idx, lmax, cellarea);
 
-errmax = 10;
-maxt = 36; % practice
+maxt = 30; % practice
 for T = 1:maxt
     if mod(T,1)==0; fprintf("%d/%d\n", T, maxt); end
 
@@ -281,7 +280,7 @@ for T = 1:maxt
         
         qr_ave_temp_idx = zeros(riv_count, 1);
         % % % Adaptive Runge-Kutta
-        [vr_err, vr_temp] = ...
+        [vr_err, vr_temp, qr_ave_temp_idx] = ...
             adaptiveRKvr(ddt, qr_ave_temp_idx, ParamRK, vr_idx, qr_idx, hr_idx, funcr_vr4RK);
     
         hr_err = vr_err ./ (cellarea * area_ratio_idx);
@@ -289,7 +288,6 @@ for T = 1:maxt
         [errmax, errmax_loc] =  max(hr_err, [], 'all');
 
         errmax = errmax / eps;
-        % disp([ddt,errmax])
         
         if errmax > 1 && ddt > ddt_min_riv
             ddt = max( safety * ddt * (errmax ^ pshrnk), 0.5 * ddt );
@@ -435,6 +433,10 @@ for T = 1:maxt
     disp(["max hr : ", hr_max, "loc : ", slo_idx2i(hr_max_loc), slo_idx2j(hr_max_loc) ])
     disp(["max hs : ", hs_max, "loc : ", slo_idx2i(hs_max_loc), slo_idx2j(hs_max_loc) ])
 %%%-------------------------- OUTPUT -----------------------------------%%%
+
+
+
+
 
 
 end
