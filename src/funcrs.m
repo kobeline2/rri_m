@@ -15,7 +15,7 @@ qrs = zeros(NX,NY);
 
 for I = 1:NX
     for J = 1:NY
-        if domain(I,J) == 0 | riv(I,J) == 0;continue;end
+        if domain(I,J) == 0 || riv(I,J) == 0;continue;end
         
         hs_top = hs(I,J);
         hr_top = hr(I,J) - depth(I,J);
@@ -24,7 +24,7 @@ for I = 1:NX
         len = len_riv_idx(K);
         
         %%
-        if (height(I,J) == 0 & hr_top < 0)|(height(I,J) > 0 & hr_top < 0 & hs_top <= height(I,J))
+        if (height(I,J) == 0 && hr_top < 0)||(height(I,J) > 0 && hr_top < 0 && hs_top <= height(I,J))
             % From slope to river (hrs > 0)
             hrs = Mu1 * hs_top * sqrt(9.81 * hs_top) * dt * len * 2 /area;
             if hrs > hs(I,J)
@@ -40,11 +40,11 @@ for I = 1:NX
             hs_top = hs(I,J);
             hr_top = hr(I,J) - depth(I,J);
             %%
-            if hr_top > -0.00001 & hr_top > hs_top;
-                for count = 1:10;
+            if hr_top >= -0.00001 && hr_top > hs_top
+                for count = 1:10
                     b = sec_h2b(hr(I,J),width_idx(K));
                     ar = len * b / area;
-                    hrs = (hs_top - hr_top)/(2/ar);
+                    hrs = (hs_top - hr_top)/(1 + 1/ar);
                     hs(I,J) = hs(I,J) - hrs;
         
                     hr_new = hr_update(hr(I,J),hrs,K,area, area_ratio_idx(K));
@@ -60,11 +60,11 @@ for I = 1:NX
             end
         
         
-        elseif height(I,J) > 0 & hs_top <= height(I,J) & hr_top <= height(I,J) & hr_top >= 0
+        elseif height(I,J) > 0 && hs_top <= height(I,J) && hr_top <= height(I,J) && hr_top >= 0
             % No exchange
             qrs(I,J) = 0;
         
-        elseif hs_top <= hr_top & hr_top >= height(I,J)
+        elseif hs_top <= hr_top && hr_top >= height(I,J)
             % From river to slope (hrs < 0)
             h1 = hr_top - height(I,J);
             h2 = hs_top - height(I,J);
@@ -92,7 +92,7 @@ for I = 1:NX
                 for count = 1:10
                     b = sec_h2b(hr(I,J),width_idx(K));
                     ar = len * b / area;
-                    hrs = (hs_top - hr_top)/(2/ar);
+                    hrs = (hs_top - hr_top)/(1 + 1/ar);
                     hs(I,J) = hs(I,J) - hrs;
         
                     hr_new = hr_update(hr(I,J),hrs,K,area, area_ratio_idx(K));
@@ -107,7 +107,7 @@ for I = 1:NX
                 hr(I,J) = hs(I,J) + depth(I,J);
             end
         
-        elseif hs_top>= hr_top & hs_top >= height(I,J)
+        elseif hs_top>= hr_top && hs_top >= height(I,J)
             % From slope to river (hrs > 0)
             h1 = hs_top - height(I,J);
             h2 = hr_top - height(I,J);
@@ -129,11 +129,11 @@ for I = 1:NX
              % avoid the situation of hr_top > hs_top
             hs_top = hs(I,J);
             hr_top = hr(I,J) - depth(I,J);
-            if hr_top > -0.00001 & hr_top > hs_top
+            if hr_top > -0.00001 && hr_top > hs_top
                 for count = 1:10
                     b = sec_h2b(hr(I,J),width_idx(K));
                     ar = len * b / area;
-                    hrs = (hs_top - hr_top)/(2/ar);
+                    hrs = (hs_top - hr_top)/(1 + 1/ar);
                     hs(I,J) = hs(I,J) - hrs;
         
                     hr_new = hr_update(hr(I,J),hrs,K,area, area_ratio_idx(K));
