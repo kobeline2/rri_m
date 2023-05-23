@@ -7,6 +7,7 @@ tic
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 RRI_Read
+load_paramRK
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% STEP 1 : FILE READING
@@ -17,7 +18,6 @@ maxt = lasth * 3600 / dt;
 % read parameters
 params = readvars(demfile, 'Range', 'A1:C6');
 params = cellfun(@split, params, 'UniformOutput', false);
-
 NX = str2double(cell2mat(params{1}(2)));
 NY = str2double(cell2mat(params{2}(2)));
 XLLCORNER = str2double(cell2mat(params{3}(2)));
@@ -157,15 +157,16 @@ hg(:,:) = -0.1;
 %%%-------------------------- hydro file -------------------------------%%%
 if hydro_switch == 1
     df = readmatrix(location_file);
+    maxhydro = size(df,1);
     fID_1012 = fopen('../output/hydro.txt', 'w');
     fID_1013 = fopen('../output/hydro_hr.txt', 'w');
-    format_1012 = "%10f";  % format of output (hydro.txt & hydro_hr.txt)
+    format_1012 = "%7.2f";  % format of output (hydro.txt & hydro_hr.txt)
     output_1012 = zeros(1, size(df,1));  % output of hydro.txt
     output_1013 = zeros(1, size(df,1));  % output of hydro_hr.txt
-    for I = 1:size(df,1)
+    for I = 1:maxhydro
         hydro_i(I) = df(I, 2); % Y座標(列番号)
         hydro_j(I) = df(I, 3); % X座標(行番号)
-        format_1012 = append(format_1012, " %12f");
+        format_1012 = append(format_1012, " %10.5f");
     end
     format_1012 = append(format_1012, " \n");
 end
@@ -253,7 +254,6 @@ out_next = round(out_dt);
 TT = 0;
 
 % preparation for RK
-load_paramRK
 funcr_vr4RK = @(vr_idx, qr_idx, hr_idx) ...
         Funcr(vr_idx, qr_idx, hr_idx, cellarea, area_ratio_idx, riv_count,...
         domain_riv_idx, zb_riv_idx, dif_riv_idx, dis_riv_idx, down_riv_idx, width_idx, ns_river);
@@ -262,7 +262,7 @@ funcr_hs4RK = @(qs_idx, hs_idx, qp_t_idx) ...
         dis_slo_idx, dis_slo_1d_idx, down_slo_idx, down_slo_1d_idx, len_slo_idx, len_slo_1d_idx,...
         da_idx, dm_idx, beta_idx, dif_slo_idx, soildepth_idx, gammaa_idx, lmax, cellarea);
 
-maxt =30; % practice
+maxt = 50; % practice
 for T = 1:maxt
     if mod(T,1)==0; fprintf("%d/%d\n", T, maxt); end
 
@@ -334,7 +334,7 @@ for T = 1:maxt
     ddt = dt;
     ddt_chk_slo = dt;
 
-    qs_ave = zeros(i4,NX,NY);
+    qs_ave = zeros(NX,NY,i4);
     qs_ave_idx = zeros(i4, slo_count);
 
     hs_idx = hs(domAndSlo);
@@ -362,7 +362,7 @@ for T = 1:maxt
     
         qs_ave_temp_idx = zeros(i4, slo_count);
         % % % Adaptive Runge-Kutta
-        [hs_err, hs_temp] = ...
+        [hs_err, hs_temp, qs_ave_temp_idx] = ...
             adaptive_RKhs(ddt, qs_ave_temp_idx, ParamRK, qs_idx, hs_idx, qp_t_idx, funcr_hs4RK);
     
         hs_err(domain_slo_idx==0) = 0;
@@ -399,6 +399,8 @@ for T = 1:maxt
 
     
     hs(domAndSlo) = hs_idx;
+    qs_ave = sub_slo_idx2ij4(qs_ave_idx, qs_ave, slo_count, slo_idx2i, slo_idx2j, i4);
+    gampt_ff(domAndSlo) = gampt_ff_idx;
 
 
 %%%-------------------------- LEVEE BREAK  -----------------------------%%%
@@ -447,7 +449,7 @@ for T = 1:maxt
 %%%-------------------------- OUTPUT -----------------------------------%%%
 
     if hydro_switch == 1 && mod(time, 3600) == 0 
-        for K = 1:size(output_1012,2)
+        for K = 1:maxhydro
             output_1012(K) = qr_ave(hydro_j(K), hydro_i(K));  % hydro.txt
             output_1013(K) = hr(hydro_j(K), hydro_i(K));      % hydro_hr.txt
         end
