@@ -37,7 +37,6 @@ function [hs_err, hs_temp, qs_ave_temp_idx] = ...
     hs_temp = hs_idx + ddt * (ParamRK.c1 * fs + ParamRK.c3 * ks3 + ParamRK.c4 * ks4 + ParamRK.c6 * ks6);
     hs_temp(hs_temp<0) = 0;
     qs_ave_temp_idx = qs_ave_temp_idx + qs_idx * ddt;
-    disp(max(qs_ave_temp_idx,[],'all'))
     
     hs_err = ddt * (ParamRK.dc1 * fs + ParamRK.dc3 * ks3 + ParamRK.dc4 * ks4 + ParamRK.dc5 * ks5 + ParamRK.dc6 * ks6);
 end

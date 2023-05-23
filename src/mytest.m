@@ -458,6 +458,15 @@ for T = 1:maxt
     end
 
 
+    if T == out_next
+        disp(["OUTPUT : ", T, time])
+        TT = TT + 1;
+        outnext = round( (TT + 1) * out_dt );
+        t_char = num2str(TT,'%06d');
+        
+        
+
+    end
 
 end
 
