@@ -461,10 +461,61 @@ for T = 1:maxt
     if T == out_next
         disp(["OUTPUT : ", T, time])
         TT = TT + 1;
-        outnext = round( (TT + 1) * out_dt );
+        outnext = round( (TT + 1) * out_dt );         
         t_char = num2str(TT,'%06d');
         
-        
+        hs(domain == 0) = -0.1;
+        gampt_ff(domain == 0) = -0.1;
+        hg(domain == 0) = -0.1;
+        % avep
+        if rivThresh >= 0
+            hr(domain == 0) = -0.1;
+            qr_ave(domain == 0) = -0.1;
+        end
+        % qe_t
+
+        if outswitch_hs == 1; ofile_hs = append(outfile_hs, t_char, ".csv"); end
+        if outswitch_hs == 2; ofile_hs = append(outfile_hs, t_char, ".bin"); end
+        if outswitch_hr == 1; ofile_hr = append(outfile_hr, t_char, ".out"); end 
+        if outswitch_hr == 2; ofile_hr = append(outfile_hr, t_char, ".bin"); end 
+        if outswitch_hg == 1; ofile_hg = append(outfile_hg, t_char, ".out"); end
+        if outswitch_hg == 2; ofile_hg = append(outfile_hg, t_char, ".bin"); end
+        if outswitch_qr == 1; ofile_qr = append(outfile_qr, t_char, ".out"); end 
+        if outswitch_qr == 2; ofile_qr = append(outfile_qr, t_char, ".bin"); end
+        if outswitch_qu == 1; ofile_qu = append(outfile_qu, t_char, ".out"); end
+        if outswitch_qu == 2; ofile_qu = append(outfile_qu, t_char, ".bin"); end
+        if outswitch_qv == 1; ofile_qv = append(outfile_qv, t_char, ".out"); end 
+        if outswitch_qv == 2; ofile_qv = append(outfile_qv, t_char, ".bin"); end 
+        if outswitch_gu == 1; ofile_gu = append(outfile_gu, t_char, ".out"); end
+        if outswitch_gu == 2; ofile_gu = append(outfile_gu, t_char, ".bin"); end
+        if outswitch_gv == 1; ofile_gv = append(outfile_gv, t_char, ".out"); end 
+        if outswitch_gv == 2; ofile_gv = append(outfile_gv, t_char, ".bin"); end 
+        if outswitch_gampt_ff == 1; ofile_gampt_ff = append(outfile_gampt_ff, t_char, ".out"); end 
+        if outswitch_gampt_ff == 2; ofile_gampt_ff = append(outfile_gampt_ff, t_char, ".bin"); end    
+
+        if outswitch_hs == 1; fID_100 = fopen(ofile_hs, 'w'); end
+        if outswitch_hr == 1; fID_101 = fopen(ofile_hr, 'w'); end
+        if outswitch_hg == 1; fID_102 = fopen(ofile_hg, 'w'); end
+        if outswitch_qr == 1; fID_103 = fopen(ofile_qr, 'w'); end
+        if outswitch_qu == 1; fID_104 = fopen(ofile_qu, 'w'); end
+        if outswitch_qv == 1; fID_105 = fopen(ofile_qv, 'w'); end
+        if outswitch_gu == 1; fID_106 = fopen(ofile_gu, 'w'); end
+        if outswitch_gv == 1; fID_107 = fopen(ofile_gv, 'w'); end
+        if outswitch_gampt_ff == 1; fID_108 = fopen(ofile_gampt_ff, 'w'); end
+
+        % if outswitch_hs == 2; fID_100 = fopen(ofile_hs, 'w'); end
+        % if outswitch_hr == 2; fID_101 = fopen(ofile_hr, 'w'); end
+        % if outswitch_hg == 2; fID_102 = fopen(ofile_hg, 'w'); end
+        % if outswitch_qr == 2; fID_103 = fopen(ofile_qr, 'w'); end
+        % if outswitch_qu == 2; fID_104 = fopen(ofile_qu, 'w'); end
+        % if outswitch_qv == 2; fID_105 = fopen(ofile_qv, 'w'); end
+        % if outswitch_gu == 2; fID_106 = fopen(ofile_gu, 'w'); end
+        % if outswitch_gv == 2; fID_107 = fopen(ofile_gv, 'w'); end
+        % if outswitch_gampt_ff == 2; fID_108 = fopen(ofile_gampt_ff, 'w'); end
+
+        % output (ascii)
+        if outswitch_hs == 1; writematrix(hs', ofile_hs); end
+
 
     end
 
