@@ -283,14 +283,15 @@ for T = 1:maxt
         vr_idx(K) = hr2vr(hr_idx(K), K, cellarea, area_ratio_idx(K));  % Kは不要になりそう
     end
 
+    % "time + ddt" should be less than "t * dt"
+    if time + ddt > T * dt; ddt = T * dt - time; end
+        
+    %%%% boundary condition
+
     while true
         if rivThresh < 0; break; end        % no river
-        % "time + ddt" should be less than "t * dt"
-        if time + ddt > T * dt; ddt = T * dt - time; end
-        
-        %%%% boundary condition
-        
         qr_ave_temp_idx = zeros(riv_count, 1);
+
         % % % Adaptive Runge-Kutta
         [vr_err, vr_temp, qr_ave_temp_idx] = ...
             adaptiveRKvr(ddt, qr_ave_temp_idx, ParamRK, vr_idx, qr_idx, hr_idx, funcr_vr4RK);
@@ -317,7 +318,7 @@ for T = 1:maxt
             vr_idx = vr_temp;
             qr_ave_idx = qr_ave_idx + qr_ave_temp_idx;             
         end
-        if time >= T * dt; break; end
+        if time >= T * dt; break; end % finish river calculation
     end
     qr_ave_idx = qr_ave_idx / dt / 6; 
 
@@ -340,7 +341,7 @@ for T = 1:maxt
     hs_idx = hs(domAndSlo);
     gampt_ff_idx = gampt_ff(domAndSlo);
 
-    while time < T * dt || (errmax > 1 && ddt > ddt_min_slo)
+    while true
         if time + ddt > T * dt; ddt = T * dt - time; end
     
         % rainfall 
@@ -360,32 +361,35 @@ for T = 1:maxt
         
         %%%% boundary condition
     
-        qs_ave_temp_idx = zeros(i4, slo_count);
-        % % % Adaptive Runge-Kutta
-        [hs_err, hs_temp, qs_ave_temp_idx] = ...
-            adaptive_RKhs(ddt, qs_ave_temp_idx, ParamRK, qs_idx, hs_idx, qp_t_idx, funcr_hs4RK);
-    
-        hs_err(domain_slo_idx==0) = 0;
-        [errmax, errmax_loc] =  max(hs_err, [], 'all');
-        errmax = errmax / eps;
-    
-        if errmax > 1 && ddt > ddt_min_slo
-            ddt = max( safety * ddt * (errmax ^ pshrnk), 0.5 * ddt );
-            ddt = max( ddt, ddt_min_slo ); 
-            ddt_chk_slo = ddt;
-            disp(["shrink (slo): ", ddt, errmax, slo_idx2i(errmax_loc), slo_idx2j(errmax_loc)])
-            if ddt==0; error('stepsize underflow'); end  
-        else
-            if time + ddt > T * dt; ddt = T * dt - time; end
-            time = time + ddt;
-            hs_idx = hs_temp;
-            qs_ave_idx = qs_ave_idx + qs_ave_temp_idx;
+        while true
+            qs_ave_temp_idx = zeros(i4, slo_count);
+            % % % Adaptive Runge-Kutta
+            [hs_err, hs_temp, qs_ave_temp_idx] = ...
+                adaptive_RKhs(ddt, qs_ave_temp_idx, ParamRK, qs_idx, hs_idx, qp_t_idx, funcr_hs4RK);
+        
+            hs_err(domain_slo_idx==0) = 0;
+            [errmax, errmax_loc] =  max(hs_err, [], 'all');
+            errmax = errmax / eps;
+        
+            if errmax > 1 && ddt > ddt_min_slo
+                ddt = max( safety * ddt * (errmax ^ pshrnk), 0.5 * ddt );
+                ddt = max( ddt, ddt_min_slo ); 
+                ddt_chk_slo = ddt;
+                disp(["shrink (slo): ", ddt, errmax, slo_idx2i(errmax_loc), slo_idx2j(errmax_loc)])
+                if ddt==0; error('stepsize underflow'); end  
+            else
+                if time + ddt > T * dt; ddt = T * dt - time; end
+                time = time + ddt;
+                hs_idx = hs_temp;
+                qs_ave_idx = qs_ave_idx + qs_ave_temp_idx;
+                break; % go to next timestep
+            end
         end
 
         % cumulative rainfall
         rain_sum = sum(qp_t(domAndSlo)) * cellarea * numOfCell * ddt;
         
-        if time >= T * dt; break; end
+        if time >= T * dt; break; end % finish slope calculation
     end
     qs_ave_idx = qs_ave_idx / dt / 6;
 
@@ -514,7 +518,21 @@ for T = 1:maxt
         % if outswitch_gampt_ff == 2; fID_108 = fopen(ofile_gampt_ff, 'w'); end
 
         % output (ascii)
-        if outswitch_hs == 1; writematrix(hs', ofile_hs); end
+        % if outswitch_hs == 1; writematrix(hs', ofile_hs); end
+
+
+
+
+        if outswitch_hs ~= 0; fclose(fID_100); end
+        if outswitch_hr ~= 0; fclose(fID_101); end
+        if outswitch_hg ~= 0; fclose(fID_102); end
+        if outswitch_qr ~= 0; fclose(fID_103); end
+        if outswitch_qu ~= 0; fclose(fID_104); end
+        if outswitch_qv ~= 0; fclose(fID_105); end
+        if outswitch_gu ~= 0; fclose(fID_106); end
+        if outswitch_gv ~= 0; fclose(fID_107); end
+        if outswitch_gampt_ff ~= 0; fclose(fID_108); end
+
 
 
     end
