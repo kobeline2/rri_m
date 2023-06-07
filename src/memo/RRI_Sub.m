@@ -1,4 +1,4 @@
-%% RRI.f90
+%% RRI_Sub.f90
 
 tic
 
@@ -6,8 +6,7 @@ tic
 %%% STEP 0 : FILE NAME AND PARAMETER SETTING
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-RRI_Read
-load_paramRK
+% RRI_Read.m を実行する
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% STEP 1 : FILE READING
@@ -18,6 +17,7 @@ maxt = lasth * 3600 / dt;
 % read parameters
 params = readvars(demfile, 'Range', 'A1:C6');
 params = cellfun(@split, params, 'UniformOutput', false);
+
 NX = str2double(cell2mat(params{1}(2)));
 NY = str2double(cell2mat(params{2}(2)));
 XLLCORNER = str2double(cell2mat(params{3}(2)));
@@ -152,35 +152,17 @@ hg(:,:) = -0.1;
 
 %%%-------------------------- div file ---------------------------------%%%
 
-
-
-%%%-------------------------- hydro file -------------------------------%%%
-if hydro_switch == 1
-    df = readmatrix(location_file);
-    maxhydro = size(df,1);
-    fID_1012 = fopen('../output/hydro.txt', 'w');
-    fID_1013 = fopen('../output/hydro_hr.txt', 'w');
-    format_1012 = "%7.2f";  % format of output (hydro.txt & hydro_hr.txt)
-    output_1012 = zeros(1, size(df,1));  % output of hydro.txt
-    output_1013 = zeros(1, size(df,1));  % output of hydro_hr.txt
-    for I = 1:maxhydro
-        hydro_i(I) = df(I, 2); % Y座標(列番号)
-        hydro_j(I) = df(I, 3); % X座標(行番号)
-        format_1012 = append(format_1012, " %10.5f");
-    end
-    format_1012 = append(format_1012, " \n");
+df = readmatrix(location_file);
+for I = 1:size(df,1)
+    hydro_i(I) = df(I, 2); % Y座標(列番号)
+    hydro_j(I) = df(I, 3); % X座標(行番号)
 end
 
 %%%-------------------------- array initialization ---------------------%%%
 
-qr_idx = zeros(riv_count, 1);        % 
-
 hr_idx = zeros(riv_count, 1);        % rivセルの水深
 vr_idx = zeros(riv_count, 1);        % rivセルの流量
 
-qs_ave_temp_idx = zeros(i4, slo_count);
-qs_ave_idx = zeros(i4, slo_count);
-qs_idx = zeros(i4, slo_count);
 hs_idx = zeros(slo_count, 1);        % sloセルの水深
 qp_t_idx = zeros(slo_count, 1);      % sloセルの降水量
 
@@ -253,20 +235,12 @@ out_dt = max(1, out_dt);
 out_next = round(out_dt);
 TT = 0;
 
-% preparation for RK
-funcr_vr4RK = @(vr_idx, qr_idx, hr_idx) ...
-        Funcr(vr_idx, qr_idx, hr_idx, cellarea, area_ratio_idx, riv_count,...
-        domain_riv_idx, zb_riv_idx, dif_riv_idx, dis_riv_idx, down_riv_idx, width_idx, ns_river);
-funcr_hs4RK = @(qs_idx, hs_idx, qp_t_idx) ...
-        Funcs(qs_idx, hs_idx, qp_t_idx, slo_count, zb_slo_idx, ns_slo_idx, ka_idx,...
-        dis_slo_idx, dis_slo_1d_idx, down_slo_idx, down_slo_1d_idx, len_slo_idx, len_slo_1d_idx,...
-        da_idx, dm_idx, beta_idx, dif_slo_idx, soildepth_idx, gammaa_idx, lmax, cellarea);
-
-maxt = 50; % practice
+maxt = 2; % practice
 for T = 1:maxt
     if mod(T,1)==0; fprintf("%d/%d\n", T, maxt); end
 
 %%%-------------------------- RIVER CALCULATION ------------------------%%%
+    % if rivThresh < 0 go to 2
     
     time = (T - 1) * dt; 
     % time step is initially set to be "dt_riv"
@@ -275,123 +249,199 @@ for T = 1:maxt
     
     qr_ave = zeros(NX,NY);
     qr_ave_idx = zeros(riv_count, 1);
-    % if dam_switch == 1; dam_vol_temp(:) = 0;end
+%     if dam_switch == 1; dam_vol_temp(:) = 0;end
     
-    hr_idx = hr(domAndRiv); % hr_idx = sub_riv_ij2idx(hr, hr_idx, riv_count, riv_idx2i, riv_idx2j);
+    hr_idx = hr(domAndRiv);
+%     hr_idx = sub_riv_ij2idx(hr, hr_idx, riv_count, riv_idx2i, riv_idx2j);
     
     for K = 1:riv_count
         vr_idx(K) = hr2vr(hr_idx(K), K, cellarea, area_ratio_idx(K));  % Kは不要になりそう
     end
-
+    
     % "time + ddt" should be less than "t * dt"
     if time + ddt > T * dt; ddt = T * dt - time; end
-        
-    %%%% boundary condition
-
-    while true
-        if rivThresh < 0; break; end        % no river
-        qr_ave_temp_idx = zeros(riv_count, 1);
-
-        % % % Adaptive Runge-Kutta
-        [vr_err, vr_temp, qr_ave_temp_idx] = ...
-            adaptiveRKvr(ddt, qr_ave_temp_idx, ParamRK, vr_idx, qr_idx, hr_idx, funcr_vr4RK);
     
-        hr_err = vr_err ./ (cellarea * area_ratio_idx);
-        hr_err(domain_riv_idx==0) = 0;
-        [errmax, errmax_loc] =  max(hr_err, [], 'all');
-
-        errmax = errmax / eps;
-        
-        if errmax > 1 && ddt > ddt_min_riv
-            ddt = max( safety * ddt * (errmax ^ pshrnk), 0.5 * ddt );
-            ddt = max( ddt, ddt_min_riv ); 
-            ddt_chk_riv = ddt;
-            disp(["shrink (riv): ", ddt, errmax, slo_idx2i(errmax_loc), slo_idx2j(errmax_loc)])
-            if ddt==0; error('stepsize underflow'); end  
-        else
-            if ddt == ddt_min_riv
-                kr6 = funcr_vr4RK(vr_idx, qr_idx, hr_idx);
-                qr_ave_temp_idx = qr_ave_temp_idx + qr_idx * ddt * 6;
-            end
-            if time + ddt > T * dt; ddt = T * dt - time; end
-            time = time + ddt;
-            vr_idx = vr_temp;
-            qr_ave_idx = qr_ave_idx + qr_ave_temp_idx;             
-        end
-        if time >= T * dt; break; end % finish river calculation
-    end
-    qr_ave_idx = qr_ave_idx / dt / 6; 
+    %%%% boundary condition
+    
+    qr_ave_temp_idx = zeros(riv_count, 1);
+    
+    
+    %%%%%%%%%%%%%%%%% ------------- Funcr
+    fr_idx = zeros(riv_count, 1);
+%     qr_idx = zeros(riv_count, 1);
+    qr_sum_idx = zeros(riv_count, 1);
+%     qr_div_idx = zeros(riv_count, 1);
 
     for K = 1:riv_count
-        hr_idx(K) = vr2hr(vr_idx(K), K, cellarea, area_ratio_idx(K)); 
-    end    
+        hr_idx(K) = vr2hr(vr_idx(K),K,cellarea, area_ratio_idx(K));
+    end
 
-    hr(domAndRiv) = hr_idx; 
-    qr_ave(domAndRiv) = qr_ave_idx;
+    %%%% boundary condition
 
+    qr_idx = zeros(riv_count, 1);
+    qr_div_idx = zeros(riv_count, 1);
+
+
+    for K = 1:riv_count
+        if domain_riv_idx(K) == 2; continue; end
+        zb_p = zb_riv_idx(K);
+        hr_p = hr_idx(K);
+        dif_p = dif_riv_idx(K);
+
+        distance = dis_riv_idx(K);
+
+        % information of the destination cell
+        KK = down_riv_idx(K);
+        zb_n = zb_riv_idx(KK);
+        hr_n = hr_idx(KK);
+        dif_n = dif_riv_idx(KK);
+
+        % diffusion wave
+        dh = ((zb_p + hr_p) - (zb_n + hr_n)) / distance; % diffussion
+
+        % kinematic wave
+        if dif_p == 0; dh = max( (zb_p - zb_n) / distance, 0.001 ); end
+
+        % the destination cell is outlet (domain = 2)
+        if domain_riv_idx(KK) == 2; dh = (zb_p + hr_p - zb_n) / distance; end % kinematic wave (+hr_p)
+
+        %%% kinematic wave, tributary
+        
+        if dh >= 0
+            h = hr_p;
+            if zb_p < zb_n; h = max(0.d0, zb_p + hr_p - zb_n); end
+            [t,h]=ode45(@(t,h) odefun_r(t,h,dh,ns_river,width_idx(K),cellarea,area_ratio_idx(K)),[time time+ddt],h);
+            hr_idx(K) = h(end);
+        else
+            h = hr_n;
+            if zb_n < zb_p ; h = max(0.d0, zb_n + hr_n - zb_p); end
+            [t,h]=ode45(@(t,h) odefun_r(t,h,dh,ns_river,width_idx(K),cellarea,area_ratio_idx(K)),[time time+ddt],h);
+            hr_idx(K) = -h(end);
+        end
+    end
+    %%%%%%%%%%%%%%%%%% ------------- end Funcr
+    
+    hr = sub_riv_idx2ij(hr_idx, hr, riv_count,riv_idx2i,riv_idx2j);
+    % qr_ave
+    % dam_checkstate
+    
 %%%-------------------------- SLOPE CALCULATION ------------------------%%%
 
     time = (T - 1) * dt;
+
     ddt = dt;
     ddt_chk_slo = dt;
-
-    qs_ave = zeros(NX,NY,i4);
-    qs_ave_idx = zeros(i4, slo_count);
-
-    hs_idx = hs(domAndSlo);
-    gampt_ff_idx = gampt_ff(domAndSlo);
-
-    while true
-        if time + ddt > T * dt; ddt = T * dt - time; end
     
-        % rainfall 
-        itemp = -1;
-        for jtemp = 1:tt_max_rain
-            if t_rain(jtemp) < (time + ddt) && (time + ddt) <= t_rain(jtemp+1); itemp = jtemp; end
-        end
-        for J = 1:NY
-            if itemp<= 0; continue; end  % バグ回避のため追加
-            if rain_i(J) < 1 || rain_i(J) > ny_rain; continue; end
-            for I = 1:NX
-                if rain_j(I) < 1 || rain_j(I) > nx_rain; continue; end
-                qp_t(I, J) = qp(rain_j(I), rain_i(J), itemp);
-            end
-        end
-        qp_t_idx = qp_t(domAndSlo); 
-        
-        %%%% boundary condition
-    
-        while true
-            qs_ave_temp_idx = zeros(i4, slo_count);
-            % % % Adaptive Runge-Kutta
-            [hs_err, hs_temp, qs_ave_temp_idx] = ...
-                adaptive_RKhs(ddt, qs_ave_temp_idx, ParamRK, qs_idx, hs_idx, qp_t_idx, funcr_hs4RK);
-        
-            hs_err(domain_slo_idx==0) = 0;
-            [errmax, errmax_loc] =  max(hs_err, [], 'all');
-            errmax = errmax / eps;
-        
-            if errmax > 1 && ddt > ddt_min_slo
-                ddt = max( safety * ddt * (errmax ^ pshrnk), 0.5 * ddt );
-                ddt = max( ddt, ddt_min_slo ); 
-                ddt_chk_slo = ddt;
-                disp(["shrink (slo): ", ddt, errmax, slo_idx2i(errmax_loc), slo_idx2j(errmax_loc)])
-                if ddt==0; error('stepsize underflow'); end  
-            else
-                if time + ddt > T * dt; ddt = T * dt - time; end
-                time = time + ddt;
-                hs_idx = hs_temp;
-                qs_ave_idx = qs_ave_idx + qs_ave_temp_idx;
-                break; % go to next timestep
-            end
-        end
+%     qs_ave = zeros(NX,NY);
+%     qs_ave_idx = zeros(slo_count,1);
 
-        % cumulative rainfall
-        rain_sum = sum(qp_t(domAndSlo)) * cellarea * numOfCell * ddt;
-        
-        if time >= T * dt; break; end % finish slope calculation
+    hs_idx = sub_slo_ij2idx(hs, hs_idx, slo_count, slo_idx2i, slo_idx2j);
+%     gampt_ff_idx
+
+    if time + ddt > T * dt; ddt = T * dt - time; end
+    
+    % rainfall 
+    itemp = -1;
+    for jtemp = 1:tt_max_rain
+        if t_rain(jtemp) < (time + ddt) && (time + ddt) <= t_rain(jtemp+1); itemp = jtemp; end
     end
-    qs_ave_idx = qs_ave_idx / dt / 6;
+    for J = 1:NY
+        if itemp<= 0; continue; end  % バグ回避のため追加
+        if rain_i(J) < 1 || rain_i(J) > ny_rain; continue; end
+        for I = 1:NX
+            if rain_j(I) < 1 || rain_j(I) > nx_rain; continue; end
+            qp_t(I, J) = qp(rain_j(I), rain_i(J), itemp);
+        end
+    end
+    qp_t_idx = sub_slo_ij2idx(qp_t, qp_t_idx, slo_count, slo_idx2i, slo_idx2j);
+    
+    %%%% boundary condition
+    
+    
+    %%%%%%%%%%%%%%%%%% ------------- Funcs
+
+    fs_idx = zeros(slo_count, 1);
+    qs_idx = zeros(i4, slo_count);  % slopeセルの流量（面積あたり）[m/s]
+
+    for K = 1:slo_count
+        zb_p = zb_slo_idx(K);
+        hs_p = hs_idx(K);
+        ns_p = ns_slo_idx(K);
+        ka_p = ka_idx(K);
+        da_p = da_idx(K);
+        dm_p = dm_idx(K);
+        b_p  = beta_idx(K);
+        dif_p = dif_slo_idx(K);
+
+        for L = 1:lmax % (1: right�C2: down, 3: right down, 4: left down)
+            if dif_p == 0 && L == 2; break; end % kinematic -> 1-direction
+            KK = down_slo_idx(L, K);
+            if dif_p == 0; KK = down_slo_1d_idx(K); end
+            if KK == -1; continue; end
+    
+            distance = dis_slo_idx(L, K);
+            len = len_slo_idx(L, K);
+            if dif_p == 0; distance = dis_slo_1d_idx(K); end
+            if dif_p == 0; len = len_slo_1d_idx(K); end
+    
+            zb_n = zb_slo_idx(KK);
+            hs_n = hs_idx(KK);
+            ns_n = ns_slo_idx(KK);
+            ka_n = ka_idx(KK);
+            da_n = da_idx(KK);
+            dm_n = dm_idx(KK);
+            b_n = beta_idx(KK);
+            dif_n = dif_slo_idx(KK);
+    
+            lev_p = h2lev(hs_p, soildepth_idx(K), gammaa_idx(K));
+            lev_n = h2lev(hs_n, soildepth_idx(KK), gammaa_idx(KK));
+    
+            % diffusion wave
+            dh = ((zb_p + lev_p) - (zb_n + lev_n)) / distance;
+    
+            % 1-direction : kinematic wave
+            if dif_p == 0; dh = max( (zb_p - zb_n) / distance, 0.001 ); end
+    
+            %%%% embankment
+            
+            %  water coming in or going out?
+            opts = odeset('AbsTol',1e-3);
+            if dh >= 0
+                % going out
+            h = hs_p;
+            if zb_p < zb_n; h = max(0, zb_p + hs_p - zb_n); end
+            [t,h]=ode45(@(t,h) odefun_s(t, h, dh, ns_p, ka_p, da_p, dm_p, b_p, len, cellarea),[time time+ddt],h,opts);
+            qs_idx(L,K) = h(end);
+            else
+            % coming in
+            h = hs_n;
+            if zb_n < zb_p; h = max(0, zb_n + hs_n - zb_p); end
+            [t,h]=ode45(@(t,h) odefun_s(t, h, abs(dh), ns_p, ka_p, da_p, dm_p, b_p, len, cellarea),[time time+ddt],h,opts);
+            qs_idx(L,K) = -h(end);
+            end
+        end
+    end
+    
+    %%%% boundary condition
+    
+    fs_idx = qp_t_idx - sum(qs_idx,1)';
+
+    for K = 1:slo_count
+        for L = 1:lmax
+            if dif_slo_idx(K) == 0 && L == 2; break; end % kinematic -> 1-direction
+            KK = down_slo_idx(L, K);
+            if dif_slo_idx(K) == 0; KK = down_slo_1d_idx(K); end
+            if KK == -1; continue; end
+            fs_idx(KK) = fs_idx(KK) + qs_idx(L, K);
+        end
+    end
+
+    
+    %%%%%%%%%%%%%%%%%% ------------- end Funcs
+    
+    % cumulative rainfall
+    rain_sum = sum(qp_t(domAndSlo)) * cellarea * numOfCell * ddt;  % for文なしに変えた
+    
 
 %%%-------------------------- GW CALCULATION ---------------------------%%%
 
@@ -401,142 +451,56 @@ for T = 1:maxt
 
 %%%-------------------------- Evapotranspiration  ----------------------%%%
 
-    
-    hs(domAndSlo) = hs_idx;
-    qs_ave = sub_slo_idx2ij4(qs_ave_idx, qs_ave, slo_count, slo_idx2i, slo_idx2j, i4);
-    gampt_ff(domAndSlo) = gampt_ff_idx;
-
 
 %%%-------------------------- LEVEE BREAK  -----------------------------%%%
 % 使用しない
 
 %%%-------------------------- RIVER-SLOPE INTERACTION  -----------------%%%
-    
     [hr, hs] = funcrs(hr, hs, NX, NY, domain, ...
-        riv, leveeHeight, depth, riv_ij2idx, len_riv_idx, dt, cellarea, area_ratio_idx, width_idx);
-    hr_idx = hr(domAndRiv);
-    hs_idx = hs(domAndSlo);
+        riv, leveeHeight, depth, riv_ij2idx, len_riv_idx, dt, cellarea, area_ratio_idx);
 
 %%%-------------------------- INFILTRATION (Green Ampt)  ---------------%%%
-    
     hs_idx = infilt(hs_idx, gampt_f_idx, gampt_ff_idx, ksv_idx, faif_idx, gammaa_idx, infilt_limit_idx, dt, slo_count);
-    hs(domAndSlo) = hs_idx;
-    gampt_f(domAndSlo) = gampt_f_idx;
-    gampt_ff(domAndSlo) = gampt_ff_idx;
+
 
 %%%-------------------------- SET WATER DEPTH 0 AT DOMAIN = 2  ---------%%%
-    
-    % sout = sout + sum(hs(domain==2)) * cellarea;
-    % hs(domain==2) = 0;
-    for I = 1:NX
-        for J = 1:NY
-            if domain(I,J) == 2
-                sout = sout + hs(I,J) * cellarea;
-                hs(I,J) = 0;
-                if riv(I,J) == 1
-                    K = riv_ij2idx(I,J);
-                    vr_out = hr2vr(hr(I,J), K, cellarea, area_ratio_idx(K));
-                    sout = sout + vr_out;
-                    hr(I,J) = 0;
-                end
-            end
-        end
-    end
 
-    hr_idx = hr(domAndRiv);
-    hs_idx = hs(domAndSlo);
 
-    [hr_max, hr_max_loc] = max(hr(domAndSlo),[],'all');
-    [hs_max, hs_max_loc] = max(hs(domAndSlo),[],'all');
-    disp(["max hr : ", hr_max, "loc : ", slo_idx2i(hr_max_loc), slo_idx2j(hr_max_loc) ])
-    disp(["max hs : ", hs_max, "loc : ", slo_idx2i(hs_max_loc), slo_idx2j(hs_max_loc) ])
 %%%-------------------------- OUTPUT -----------------------------------%%%
 
-    if hydro_switch == 1 && mod(time, 3600) == 0 
-        for K = 1:maxhydro
-            output_1012(K) = qr_ave(hydro_j(K), hydro_i(K));  % hydro.txt
-            output_1013(K) = hr(hydro_j(K), hydro_i(K));      % hydro_hr.txt
-        end
-        fprintf( fID_1012, format_1012 ,time, output_1012);
-        fprintf( fID_1013, format_1012 ,time, output_1013);
-    end
 
-
-    if T == out_next
-        disp(["OUTPUT : ", T, time])
-        TT = TT + 1;
-        outnext = round( (TT + 1) * out_dt );         
-        t_char = num2str(TT,'%06d');
-        
-        hs(domain == 0) = -0.1;
-        gampt_ff(domain == 0) = -0.1;
-        hg(domain == 0) = -0.1;
-        % avep
-        if rivThresh >= 0
-            hr(domain == 0) = -0.1;
-            qr_ave(domain == 0) = -0.1;
-        end
-        % qe_t
-
-        if outswitch_hs == 1; ofile_hs = append(outfile_hs, t_char, ".csv"); end
-        if outswitch_hs == 2; ofile_hs = append(outfile_hs, t_char, ".bin"); end
-        if outswitch_hr == 1; ofile_hr = append(outfile_hr, t_char, ".out"); end 
-        if outswitch_hr == 2; ofile_hr = append(outfile_hr, t_char, ".bin"); end 
-        if outswitch_hg == 1; ofile_hg = append(outfile_hg, t_char, ".out"); end
-        if outswitch_hg == 2; ofile_hg = append(outfile_hg, t_char, ".bin"); end
-        if outswitch_qr == 1; ofile_qr = append(outfile_qr, t_char, ".out"); end 
-        if outswitch_qr == 2; ofile_qr = append(outfile_qr, t_char, ".bin"); end
-        if outswitch_qu == 1; ofile_qu = append(outfile_qu, t_char, ".out"); end
-        if outswitch_qu == 2; ofile_qu = append(outfile_qu, t_char, ".bin"); end
-        if outswitch_qv == 1; ofile_qv = append(outfile_qv, t_char, ".out"); end 
-        if outswitch_qv == 2; ofile_qv = append(outfile_qv, t_char, ".bin"); end 
-        if outswitch_gu == 1; ofile_gu = append(outfile_gu, t_char, ".out"); end
-        if outswitch_gu == 2; ofile_gu = append(outfile_gu, t_char, ".bin"); end
-        if outswitch_gv == 1; ofile_gv = append(outfile_gv, t_char, ".out"); end 
-        if outswitch_gv == 2; ofile_gv = append(outfile_gv, t_char, ".bin"); end 
-        if outswitch_gampt_ff == 1; ofile_gampt_ff = append(outfile_gampt_ff, t_char, ".out"); end 
-        if outswitch_gampt_ff == 2; ofile_gampt_ff = append(outfile_gampt_ff, t_char, ".bin"); end    
-
-        if outswitch_hs == 1; fID_100 = fopen(ofile_hs, 'w'); end
-        if outswitch_hr == 1; fID_101 = fopen(ofile_hr, 'w'); end
-        if outswitch_hg == 1; fID_102 = fopen(ofile_hg, 'w'); end
-        if outswitch_qr == 1; fID_103 = fopen(ofile_qr, 'w'); end
-        if outswitch_qu == 1; fID_104 = fopen(ofile_qu, 'w'); end
-        if outswitch_qv == 1; fID_105 = fopen(ofile_qv, 'w'); end
-        if outswitch_gu == 1; fID_106 = fopen(ofile_gu, 'w'); end
-        if outswitch_gv == 1; fID_107 = fopen(ofile_gv, 'w'); end
-        if outswitch_gampt_ff == 1; fID_108 = fopen(ofile_gampt_ff, 'w'); end
-
-        % if outswitch_hs == 2; fID_100 = fopen(ofile_hs, 'w'); end
-        % if outswitch_hr == 2; fID_101 = fopen(ofile_hr, 'w'); end
-        % if outswitch_hg == 2; fID_102 = fopen(ofile_hg, 'w'); end
-        % if outswitch_qr == 2; fID_103 = fopen(ofile_qr, 'w'); end
-        % if outswitch_qu == 2; fID_104 = fopen(ofile_qu, 'w'); end
-        % if outswitch_qv == 2; fID_105 = fopen(ofile_qv, 'w'); end
-        % if outswitch_gu == 2; fID_106 = fopen(ofile_gu, 'w'); end
-        % if outswitch_gv == 2; fID_107 = fopen(ofile_gv, 'w'); end
-        % if outswitch_gampt_ff == 2; fID_108 = fopen(ofile_gampt_ff, 'w'); end
-
-        % output (ascii)
-        % if outswitch_hs == 1; writematrix(hs', ofile_hs); end
-
-
-
-
-        if outswitch_hs ~= 0; fclose(fID_100); end
-        if outswitch_hr ~= 0; fclose(fID_101); end
-        if outswitch_hg ~= 0; fclose(fID_102); end
-        if outswitch_qr ~= 0; fclose(fID_103); end
-        if outswitch_qu ~= 0; fclose(fID_104); end
-        if outswitch_qv ~= 0; fclose(fID_105); end
-        if outswitch_gu ~= 0; fclose(fID_106); end
-        if outswitch_gv ~= 0; fclose(fID_107); end
-        if outswitch_gampt_ff ~= 0; fclose(fID_108); end
-
-
-
-    end
 
 end
 
 toc
+
+function dhdt = odefun_r(t,h,dh,n,w,A1,A2) 
+A = sqrt(abs(dh)) / n;
+R = (w * h) / (w + 2 * h);
+dhdt = A * R^(2/3) * w * h  / (A1 * A2);
+end
+
+
+function dhdt = odefun_s(t, h, dh, ns_p, ka_p, da_p, dm_p, b_p, len, area)
+
+km = 0;
+if b_p > 0; km = ka_p / b_p; end  % マトリックス部の透水係数
+vm = km * dh;  % マトリックス部の流速
+
+va = 0;  % 大空隙部の流速（空隙あり）
+if da_p > 0; va = ka_p * dh; end  % 大空隙部の流速（空隙なし）
+
+if dh < 0; dh = 0; end
+al = sqrt(dh) / ns_p;
+m = 5 / 3;
+
+if h < dm_p 
+    dhdt = vm * dm_p * (h / dm_p) ^ b_p;  % h <= dm
+elseif h < da_p 
+    dhdt = vm * dm_p + va * (h - dm_p);   % dm < h <= da
+else
+    dhdt = vm * dm_p + va * (h - dm_p) + al * (h - da_p) ^ m;  % da < h
+end
+
+dhdt = dhdt * len / area;  % discharge per unit area
+end
