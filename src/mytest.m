@@ -7,6 +7,7 @@ tic
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 RRI_Read
+load_paramRK
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% STEP 1 : FILE READING
@@ -17,7 +18,6 @@ maxt = lasth * 3600 / dt;
 % read parameters
 params = readvars(demfile, 'Range', 'A1:C6');
 params = cellfun(@split, params, 'UniformOutput', false);
-
 NX = str2double(cell2mat(params{1}(2)));
 NY = str2double(cell2mat(params{2}(2)));
 XLLCORNER = str2double(cell2mat(params{3}(2)));
@@ -157,15 +157,16 @@ hg(:,:) = -0.1;
 %%%-------------------------- hydro file -------------------------------%%%
 if hydro_switch == 1
     df = readmatrix(location_file);
+    maxhydro = size(df,1);
     fID_1012 = fopen('../output/hydro.txt', 'w');
     fID_1013 = fopen('../output/hydro_hr.txt', 'w');
-    format_1012 = "%10f";  % format of output (hydro.txt & hydro_hr.txt)
+    format_1012 = "%7.2f";  % format of output (hydro.txt & hydro_hr.txt)
     output_1012 = zeros(1, size(df,1));  % output of hydro.txt
     output_1013 = zeros(1, size(df,1));  % output of hydro_hr.txt
-    for I = 1:size(df,1)
+    for I = 1:maxhydro
         hydro_i(I) = df(I, 2); % Y座標(列番号)
         hydro_j(I) = df(I, 3); % X座標(行番号)
-        format_1012 = append(format_1012, " %12f");
+        format_1012 = append(format_1012, " %10.5f");
     end
     format_1012 = append(format_1012, " \n");
 end
@@ -253,7 +254,6 @@ out_next = round(out_dt);
 TT = 0;
 
 % preparation for RK
-load_paramRK
 funcr_vr4RK = @(vr_idx, qr_idx, hr_idx) ...
         Funcr(vr_idx, qr_idx, hr_idx, cellarea, area_ratio_idx, riv_count,...
         domain_riv_idx, zb_riv_idx, dif_riv_idx, dis_riv_idx, down_riv_idx, width_idx, ns_river);
@@ -262,7 +262,7 @@ funcr_hs4RK = @(qs_idx, hs_idx, qp_t_idx) ...
         dis_slo_idx, dis_slo_1d_idx, down_slo_idx, down_slo_1d_idx, len_slo_idx, len_slo_1d_idx,...
         da_idx, dm_idx, beta_idx, dif_slo_idx, soildepth_idx, gammaa_idx, lmax, cellarea);
 
-maxt =30; % practice
+maxt = 50; % practice
 for T = 1:maxt
     if mod(T,1)==0; fprintf("%d/%d\n", T, maxt); end
 
@@ -283,14 +283,15 @@ for T = 1:maxt
         vr_idx(K) = hr2vr(hr_idx(K), K, cellarea, area_ratio_idx(K));  % Kは不要になりそう
     end
 
+    % "time + ddt" should be less than "t * dt"
+    if time + ddt > T * dt; ddt = T * dt - time; end
+        
+    %%%% boundary condition
+
     while true
         if rivThresh < 0; break; end        % no river
-        % "time + ddt" should be less than "t * dt"
-        if time + ddt > T * dt; ddt = T * dt - time; end
-        
-        %%%% boundary condition
-        
         qr_ave_temp_idx = zeros(riv_count, 1);
+
         % % % Adaptive Runge-Kutta
         [vr_err, vr_temp, qr_ave_temp_idx] = ...
             adaptiveRKvr(ddt, qr_ave_temp_idx, ParamRK, vr_idx, qr_idx, hr_idx, funcr_vr4RK);
@@ -317,7 +318,7 @@ for T = 1:maxt
             vr_idx = vr_temp;
             qr_ave_idx = qr_ave_idx + qr_ave_temp_idx;             
         end
-        if time >= T * dt; break; end
+        if time >= T * dt; break; end % finish river calculation
     end
     qr_ave_idx = qr_ave_idx / dt / 6; 
 
@@ -334,13 +335,13 @@ for T = 1:maxt
     ddt = dt;
     ddt_chk_slo = dt;
 
-    qs_ave = zeros(i4,NX,NY);
+    qs_ave = zeros(NX,NY,i4);
     qs_ave_idx = zeros(i4, slo_count);
 
     hs_idx = hs(domAndSlo);
     gampt_ff_idx = gampt_ff(domAndSlo);
 
-    while time < T * dt || (errmax > 1 && ddt > ddt_min_slo)
+    while true
         if time + ddt > T * dt; ddt = T * dt - time; end
     
         % rainfall 
@@ -360,32 +361,35 @@ for T = 1:maxt
         
         %%%% boundary condition
     
-        qs_ave_temp_idx = zeros(i4, slo_count);
-        % % % Adaptive Runge-Kutta
-        [hs_err, hs_temp] = ...
-            adaptive_RKhs(ddt, qs_ave_temp_idx, ParamRK, qs_idx, hs_idx, qp_t_idx, funcr_hs4RK);
-    
-        hs_err(domain_slo_idx==0) = 0;
-        [errmax, errmax_loc] =  max(hs_err, [], 'all');
-        errmax = errmax / eps;
-    
-        if errmax > 1 && ddt > ddt_min_slo
-            ddt = max( safety * ddt * (errmax ^ pshrnk), 0.5 * ddt );
-            ddt = max( ddt, ddt_min_slo ); 
-            ddt_chk_slo = ddt;
-            disp(["shrink (slo): ", ddt, errmax, slo_idx2i(errmax_loc), slo_idx2j(errmax_loc)])
-            if ddt==0; error('stepsize underflow'); end  
-        else
-            if time + ddt > T * dt; ddt = T * dt - time; end
-            time = time + ddt;
-            hs_idx = hs_temp;
-            qs_ave_idx = qs_ave_idx + qs_ave_temp_idx;
+        while true
+            qs_ave_temp_idx = zeros(i4, slo_count);
+            % % % Adaptive Runge-Kutta
+            [hs_err, hs_temp, qs_ave_temp_idx] = ...
+                adaptive_RKhs(ddt, qs_ave_temp_idx, ParamRK, qs_idx, hs_idx, qp_t_idx, funcr_hs4RK);
+        
+            hs_err(domain_slo_idx==0) = 0;
+            [errmax, errmax_loc] =  max(hs_err, [], 'all');
+            errmax = errmax / eps;
+        
+            if errmax > 1 && ddt > ddt_min_slo
+                ddt = max( safety * ddt * (errmax ^ pshrnk), 0.5 * ddt );
+                ddt = max( ddt, ddt_min_slo ); 
+                ddt_chk_slo = ddt;
+                disp(["shrink (slo): ", ddt, errmax, slo_idx2i(errmax_loc), slo_idx2j(errmax_loc)])
+                if ddt==0; error('stepsize underflow'); end  
+            else
+                if time + ddt > T * dt; ddt = T * dt - time; end
+                time = time + ddt;
+                hs_idx = hs_temp;
+                qs_ave_idx = qs_ave_idx + qs_ave_temp_idx;
+                break; % go to next timestep
+            end
         end
 
         % cumulative rainfall
         rain_sum = sum(qp_t(domAndSlo)) * cellarea * numOfCell * ddt;
         
-        if time >= T * dt; break; end
+        if time >= T * dt; break; end % finish slope calculation
     end
     qs_ave_idx = qs_ave_idx / dt / 6;
 
@@ -399,6 +403,8 @@ for T = 1:maxt
 
     
     hs(domAndSlo) = hs_idx;
+    qs_ave = sub_slo_idx2ij4(qs_ave_idx, qs_ave, slo_count, slo_idx2i, slo_idx2j, i4);
+    gampt_ff(domAndSlo) = gampt_ff_idx;
 
 
 %%%-------------------------- LEVEE BREAK  -----------------------------%%%
@@ -447,7 +453,7 @@ for T = 1:maxt
 %%%-------------------------- OUTPUT -----------------------------------%%%
 
     if hydro_switch == 1 && mod(time, 3600) == 0 
-        for K = 1:size(output_1012,2)
+        for K = 1:maxhydro
             output_1012(K) = qr_ave(hydro_j(K), hydro_i(K));  % hydro.txt
             output_1013(K) = hr(hydro_j(K), hydro_i(K));      % hydro_hr.txt
         end
@@ -456,6 +462,80 @@ for T = 1:maxt
     end
 
 
+    if T == out_next
+        disp(["OUTPUT : ", T, time])
+        TT = TT + 1;
+        outnext = round( (TT + 1) * out_dt );         
+        t_char = num2str(TT,'%06d');
+        
+        hs(domain == 0) = -0.1;
+        gampt_ff(domain == 0) = -0.1;
+        hg(domain == 0) = -0.1;
+        % avep
+        if rivThresh >= 0
+            hr(domain == 0) = -0.1;
+            qr_ave(domain == 0) = -0.1;
+        end
+        % qe_t
+
+        if outswitch_hs == 1; ofile_hs = append(outfile_hs, t_char, ".csv"); end
+        if outswitch_hs == 2; ofile_hs = append(outfile_hs, t_char, ".bin"); end
+        if outswitch_hr == 1; ofile_hr = append(outfile_hr, t_char, ".out"); end 
+        if outswitch_hr == 2; ofile_hr = append(outfile_hr, t_char, ".bin"); end 
+        if outswitch_hg == 1; ofile_hg = append(outfile_hg, t_char, ".out"); end
+        if outswitch_hg == 2; ofile_hg = append(outfile_hg, t_char, ".bin"); end
+        if outswitch_qr == 1; ofile_qr = append(outfile_qr, t_char, ".out"); end 
+        if outswitch_qr == 2; ofile_qr = append(outfile_qr, t_char, ".bin"); end
+        if outswitch_qu == 1; ofile_qu = append(outfile_qu, t_char, ".out"); end
+        if outswitch_qu == 2; ofile_qu = append(outfile_qu, t_char, ".bin"); end
+        if outswitch_qv == 1; ofile_qv = append(outfile_qv, t_char, ".out"); end 
+        if outswitch_qv == 2; ofile_qv = append(outfile_qv, t_char, ".bin"); end 
+        if outswitch_gu == 1; ofile_gu = append(outfile_gu, t_char, ".out"); end
+        if outswitch_gu == 2; ofile_gu = append(outfile_gu, t_char, ".bin"); end
+        if outswitch_gv == 1; ofile_gv = append(outfile_gv, t_char, ".out"); end 
+        if outswitch_gv == 2; ofile_gv = append(outfile_gv, t_char, ".bin"); end 
+        if outswitch_gampt_ff == 1; ofile_gampt_ff = append(outfile_gampt_ff, t_char, ".out"); end 
+        if outswitch_gampt_ff == 2; ofile_gampt_ff = append(outfile_gampt_ff, t_char, ".bin"); end    
+
+        if outswitch_hs == 1; fID_100 = fopen(ofile_hs, 'w'); end
+        if outswitch_hr == 1; fID_101 = fopen(ofile_hr, 'w'); end
+        if outswitch_hg == 1; fID_102 = fopen(ofile_hg, 'w'); end
+        if outswitch_qr == 1; fID_103 = fopen(ofile_qr, 'w'); end
+        if outswitch_qu == 1; fID_104 = fopen(ofile_qu, 'w'); end
+        if outswitch_qv == 1; fID_105 = fopen(ofile_qv, 'w'); end
+        if outswitch_gu == 1; fID_106 = fopen(ofile_gu, 'w'); end
+        if outswitch_gv == 1; fID_107 = fopen(ofile_gv, 'w'); end
+        if outswitch_gampt_ff == 1; fID_108 = fopen(ofile_gampt_ff, 'w'); end
+
+        % if outswitch_hs == 2; fID_100 = fopen(ofile_hs, 'w'); end
+        % if outswitch_hr == 2; fID_101 = fopen(ofile_hr, 'w'); end
+        % if outswitch_hg == 2; fID_102 = fopen(ofile_hg, 'w'); end
+        % if outswitch_qr == 2; fID_103 = fopen(ofile_qr, 'w'); end
+        % if outswitch_qu == 2; fID_104 = fopen(ofile_qu, 'w'); end
+        % if outswitch_qv == 2; fID_105 = fopen(ofile_qv, 'w'); end
+        % if outswitch_gu == 2; fID_106 = fopen(ofile_gu, 'w'); end
+        % if outswitch_gv == 2; fID_107 = fopen(ofile_gv, 'w'); end
+        % if outswitch_gampt_ff == 2; fID_108 = fopen(ofile_gampt_ff, 'w'); end
+
+        % output (ascii)
+        % if outswitch_hs == 1; writematrix(hs', ofile_hs); end
+
+
+
+
+        if outswitch_hs ~= 0; fclose(fID_100); end
+        if outswitch_hr ~= 0; fclose(fID_101); end
+        if outswitch_hg ~= 0; fclose(fID_102); end
+        if outswitch_qr ~= 0; fclose(fID_103); end
+        if outswitch_qu ~= 0; fclose(fID_104); end
+        if outswitch_qv ~= 0; fclose(fID_105); end
+        if outswitch_gu ~= 0; fclose(fID_106); end
+        if outswitch_gv ~= 0; fclose(fID_107); end
+        if outswitch_gampt_ff ~= 0; fclose(fID_108); end
+
+
+
+    end
 
 end
 

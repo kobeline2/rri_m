@@ -127,37 +127,37 @@ end
 % if sec_switch == 1, disp(['sec_file : ', sec_file]), end
 % disp(' ')
 
-% outswitch_hs       = str_split_cell2mat(lines{69}(1), '');
-% outswitch_hr       = str_split_cell2mat(lines{69}(2), '');
-% outswitch_hg       = str_split_cell2mat(lines{69}(3), '');
-% outswitch_qr       = str_split_cell2mat(lines{69}(4), '');
-% outswitch_qu       = str_split_cell2mat(lines{69}(5), '');
-% outswitch_qv       = str_split_cell2mat(lines{69}(6), '');
-% outswitch_gu       = str_split_cell2mat(lines{69}(7), '');
-% outswitch_gv       = str_split_cell2mat(lines{69}(8), '');
-% outswitch_gampt_ff = str_split_cell2mat(lines{69}(9), '');
-% outswitch_storage  = str_split_cell2mat(lines{69}(10), '');
-% outfile_hs         = lines{70}{:};
-% outfile_hr         = lines{71}{:};
-% outfile_hg         = lines{72}{:};
-% outfile_qr         = lines{73}{:};
-% outfile_qu         = lines{74}{:};
-% outfile_qv         = lines{75}{:};
-% outfile_gu         = lines{76}{:};
-% outfile_gv         = lines{77}{:};
-% outfile_gampt_ff   = lines{78}{:};
-% outfile_storage    = lines{79}{:};
-% if outswitch_hs       ~= 0, disp(['outfile_hs : '     , outfile_hs]), end
-% if outswitch_hr       ~= 0, disp(['outfile_hr : '     , outfile_hr]), end
-% if outswitch_hg       ~= 0, disp(['outfile_hg : '     , outfile_hg]), end
-% if outswitch_qr       ~= 0, disp(['outfile_qr : '     , outfile_qr]), end
-% if outswitch_qu       ~= 0, disp(['outfile_qu : '     , outfile_qu]), end
-% if outswitch_qv       ~= 0, disp(['outfile_qv : '     , outfile_qv]), end
-% if outswitch_gu       ~= 0, disp(['outfile_gu: '      , outfile_gu]), end
-% if outswitch_gv       ~= 0, disp(['outfile_gv : '     , outfile_gv]), end
-% if outswitch_gampt_ff ~= 0, disp(['outfile_gampt_f : ', outfile_gampt_f]), end
-% if outswitch_storage  ~= 0, disp(['outfile_storage : ', outfile_storage]), end
-% disp(' ')
+outswitch_hs       = str_split_cell2mat(lines{69}(1), '');
+outswitch_hr       = str_split_cell2mat(lines{69}(2), '');
+outswitch_hg       = str_split_cell2mat(lines{69}(3), '');
+outswitch_qr       = str_split_cell2mat(lines{69}(4), '');
+outswitch_qu       = str_split_cell2mat(lines{69}(5), '');
+outswitch_qv       = str_split_cell2mat(lines{69}(6), '');
+outswitch_gu       = str_split_cell2mat(lines{69}(7), '');
+outswitch_gv       = str_split_cell2mat(lines{69}(8), '');
+outswitch_gampt_ff = str_split_cell2mat(lines{69}(9), '');
+outswitch_storage  = str_split_cell2mat(lines{69}(10), '');
+outfile_hs         = lines{70}{:};
+outfile_hr         = lines{71}{:};
+outfile_hg         = lines{72}{:};
+outfile_qr         = lines{73}{:};
+outfile_qu         = lines{74}{:};
+outfile_qv         = lines{75}{:};
+outfile_gu         = lines{76}{:};
+outfile_gv         = lines{77}{:};
+outfile_gampt_ff   = lines{78}{:};
+outfile_storage    = lines{79}{:};
+if outswitch_hs       ~= 0, disp(['outfile_hs : '     , outfile_hs]), end
+if outswitch_hr       ~= 0, disp(['outfile_hr : '     , outfile_hr]), end
+if outswitch_hg       ~= 0, disp(['outfile_hg : '     , outfile_hg]), end
+if outswitch_qr       ~= 0, disp(['outfile_qr : '     , outfile_qr]), end
+if outswitch_qu       ~= 0, disp(['outfile_qu : '     , outfile_qu]), end
+if outswitch_qv       ~= 0, disp(['outfile_qv : '     , outfile_qv]), end
+if outswitch_gu       ~= 0, disp(['outfile_gu: '      , outfile_gu]), end
+if outswitch_gv       ~= 0, disp(['outfile_gv : '     , outfile_gv]), end
+if outswitch_gampt_ff ~= 0, disp(['outfile_gampt_f : ', outfile_gampt_f]), end
+if outswitch_storage  ~= 0, disp(['outfile_storage : ', outfile_storage]), end
+disp(' ')
 
 %　hydro_switch=1: location_file（流量・水位を出力させたい地点）がある
 hydro_switch  = str_split_cell2mat(lines{80}, '');
