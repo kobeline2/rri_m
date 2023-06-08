@@ -365,7 +365,7 @@ for T = 1:maxt
             qs_ave_temp_idx = zeros(i4, slo_count);
             % % % Adaptive Runge-Kutta
             [hs_err, hs_temp, qs_ave_temp_idx] = ...
-                adaptive_RKhs(ddt, qs_ave_temp_idx, ParamRK, qs_idx, hs_idx, qp_t_idx, funcr_hs4RK);
+                adaptiveRKhs(ddt, qs_ave_temp_idx, ParamRK, qs_idx, hs_idx, qp_t_idx, funcr_hs4RK);
         
             hs_err(domain_slo_idx==0) = 0;
             [errmax, errmax_loc] =  max(hs_err, [], 'all');
